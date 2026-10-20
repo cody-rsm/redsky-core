@@ -261,7 +261,7 @@ This is roadmap step 1 of [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md): RedSky in 
   - Merge to `main` only from `staging`, after testing a `staging` deployment.
   - Optionally a second Railway environment that tracks `staging`, with its own `redsky-postgres`.
   - In `redsky-web` → **Settings → Source**, enable **Wait for CI**, so Railway deploys only commits whose GitHub checks passed.
-  - Optionally add **Watch Paths** (`/src/**`, `/public/**`, `/drizzle/**`, `/scripts/**`, `/package.json`, `/package-lock.json`, `/Dockerfile`, `/next.config.ts`), so documentation-only and `services/` commits don't redeploy it.
+  - Optionally add **Watch Paths** (`/src/**`, `/public/**`, `/drizzle/**`, `/scripts/**`, `/package.json`, `/package-lock.json`, `/Dockerfile`, `/next.config.ts`, `/tsconfig.json`, `/railway.json`), so documentation-only and `services/` commits don't redeploy it.
   - Keep Railway project membership limited. Rotate `REDSKY_SESSION_SECRET` by replacing it (this signs everyone out). Never rotate `REDSKY_ENCRYPTION_KEY` without a re-encryption plan.
 
 ## 13. Optional: Documents and `redsky-ocr`
@@ -288,6 +288,7 @@ It deploys in two stages:
 | Root directory | `/services/ocr` |
 | Builder | **Settings → Build → Builder: Dockerfile**, Dockerfile Path `Dockerfile` (relative to the root directory) |
 | Watch paths | `/services/ocr/**` |
+| Railway config file | `/services/ocr/railway.json` (**Settings → Config-as-code**), if the setting is offered. The repository-root `railway.json` is `redsky-web`'s: its pre-deploy migration and `/api/health` check would fail this service. If **Deploy** shows a pre-deploy command or `/api/health`, the service is reading the wrong file |
 | Custom start command | empty (the image runs `redsky-ocr serve`) |
 | Healthcheck path | `/ready` |
 | Public networking | **none**. `redsky-web` and Twenty reach it at `redsky-ocr.railway.internal:8080`. Browsers never call it |
@@ -302,11 +303,11 @@ On `redsky-web`, add the watch paths from §12 if you have not, so OCR commits d
 
 ### Secrets
 
-Set these on `redsky-ocr` as **sealed** service variables, never as Shared Variables ([`DECISIONS.md`](DECISIONS.md) 13). Two of them are also needed on `redsky-web`: paste the same value there, sealed too.
+Set these on `redsky-ocr` as service variables, never as Shared Variables ([`DECISIONS.md`](DECISIONS.md) 13), and seal them, except `REDSKY_OCR_DB_PASSWORD`: `REDSKY_OCR_DATABASE_URL` references it, and that reference was not verified with a sealed value. It protects nothing the `redsky-postgres` superuser credentials, visible to the same people, don't already expose. Two of the secrets are also needed on `redsky-web`: paste the same value there, sealed too.
 
 | Variable | Stage | How to create it |
 |---|---|---|
-| `REDSKY_OCR_DB_PASSWORD` | 1 | `openssl rand -hex 24`. Used in `REDSKY_OCR_DATABASE_URL` |
+| `REDSKY_OCR_DB_PASSWORD` | 1 | `openssl rand -hex 24`. Used in `REDSKY_OCR_DATABASE_URL`. Not sealed (above) |
 | `REDSKY_OCR_SERVICE_TOKENS` | 1 | `openssl rand -hex 32`. The same value goes on `redsky-web` as `OCR_SERVICE_TOKEN` (step 4). To rotate, add a second token after a comma, move `redsky-web` to it, then remove the first |
 | `REDSKY_OCR_EVENTS_SECRET` | 1 | `openssl rand -hex 32`. The same value goes on `redsky-web` as `OCR_EVENTS_SECRET` |
 | `REDSKY_OCR_TWENTY_API_KEY` | 2 | Stage 2, step 2 |
@@ -325,7 +326,7 @@ Set these on `redsky-ocr` as **sealed** service variables, never as Shared Varia
    DOCUMENTS_S3_REGION=${{redsky-documents.REGION}}
    DOCUMENTS_S3_ACCESS_KEY_ID=${{redsky-documents.ACCESS_KEY_ID}}
    DOCUMENTS_S3_SECRET_ACCESS_KEY=${{redsky-documents.SECRET_ACCESS_KEY}}
-   OCR_URL=http://redsky-ocr.railway.internal:8080
+   OCR_URL=http://${{redsky-ocr.RAILWAY_PRIVATE_DOMAIN}}:8080
    OCR_SERVICE_TOKEN=<one of REDSKY_OCR_SERVICE_TOKENS>
    OCR_EVENTS_SECRET=<REDSKY_OCR_EVENTS_SECRET>
    ```
