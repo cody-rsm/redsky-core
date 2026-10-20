@@ -1,0 +1,61 @@
+{
+  "name": "redsky",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RedSky — RSM Capital's internal operating system (web application)",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && npm run build:scripts",
+    "build:scripts": "node scripts/build-scripts.mjs",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed:dev": "tsx scripts/seed-dev.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0",
+    "@hookform/resolvers": "5.9.2",
+    "@tanstack/react-query": "5.104.5",
+    "drizzle-orm": "0.45.4",
+    "next": "16.4.2",
+    "openid-client": "6.8.8",
+    "postgres": "3.4.9",
+    "radix-ui": "1.8.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "7.90.0",
+    "server-only": "0.0.1",
+    "unpdf": "1.9.1",
+    "zod": "4.6.7",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@tailwindcss/turbopack": "4.3.3",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@types/node": "22.19.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.1.2",
+    "drizzle-kit": "0.31.11",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.4.2",
+    "jsdom": "30.1.3",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}

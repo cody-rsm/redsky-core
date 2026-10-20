@@ -1,0 +1,42 @@
+/* Tailwind theme + utilities only. Preflight is deliberately not loaded: the prototype's own resets (in
+   design-system.css) define the baseline, and preflight would change list, heading and SVG rendering. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import './design-system.css';
+@import './design-system-extensions.css';
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-sf: var(--sf);
+  --color-sf2: var(--sf2);
+  --color-hov: var(--hov);
+  --color-bd: var(--bd);
+  --color-bd2: var(--bd2);
+  --color-tx: var(--tx);
+  --color-tx2: var(--tx2);
+  --color-tx3: var(--tx3);
+  --color-ac: var(--ac);
+  --color-ach: var(--ach);
+  --color-act: var(--act);
+  --color-acs: var(--acs);
+  --color-ai: var(--ai);
+  --color-aib: var(--aib);
+  --color-aibd: var(--aibd);
+  --color-ok: var(--ok);
+  --color-okb: var(--okb);
+  --color-wn: var(--wn);
+  --color-wnb: var(--wnb);
+  --color-sb: var(--sb);
+  --font-sans: var(--rs-font-sans), 'Fira Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--rs-font-display), 'Faculty Glyphic', Georgia, 'Times New Roman', serif;
+  --font-mono: var(--rs-font-mono), 'Fira Mono', ui-monospace, Menlo, monospace;
+  --shadow-rs: var(--sh);
+  --shadow-rs-lg: var(--shl);
+}
+
+@layer base {
+  html,body{margin:0}
+  a{color:#941B1E}
+  a:hover{color:#7D1619}
+}

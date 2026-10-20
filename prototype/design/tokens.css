@@ -1,0 +1,55 @@
+/* RedSky design tokens — extracted from the prototype. Brand palette from the RSM Capital visual identity guide. */
+:root, [data-theme="light"] {
+  --bg: #F7F5EF;
+  --sf: #FFFEFB;
+  --sf2: #F2EFE8;
+  --hov: #EFEBE3;
+  --bd: #E6E1D6;
+  --bd2: #D6CFC1;
+  --tx: #1E1916;
+  --tx2: #5C534D;
+  --tx3: #736961;
+  --ac: #941B1E;
+  --ach: #7D1619;
+  --act: #941B1E;
+  --acs: #F6E9E6;
+  --ring: rgba(148,27,30,.16);
+  --ai: #2F5674;
+  --aib: #EAF0F5;
+  --aibd: #CCD9E2;
+  --ok: #2E6A45;
+  --okb: #E4EEE6;
+  --wn: #8A5A1F;
+  --wnb: #F4EAD9;
+  --sb: #F1EEE6;
+  --sh: 0 1px 2px rgba(40,24,20,.05),0 3px 12px rgba(40,24,20,.04);
+  --shl: 0 18px 48px rgba(40,24,20,.18),0 2px 6px rgba(40,24,20,.06);
+  --ov: rgba(30,20,16,.26);
+}
+[data-theme="dark"] {
+  --bg: #161210;
+  --sf: #1D1815;
+  --sf2: #241E1A;
+  --hov: #2A231F;
+  --bd: #322A25;
+  --bd2: #45392F;
+  --tx: #EEEBDF;
+  --tx2: #BDB3A8;
+  --tx3: #968C82;
+  --ac: #B3282C;
+  --ach: #C4353A;
+  --act: #E8726F;
+  --acs: #331C1A;
+  --ring: rgba(232,114,111,.22);
+  --ai: #9FBBD0;
+  --aib: #1C252C;
+  --aibd: #2C3B47;
+  --ok: #7FB892;
+  --okb: #1B2A20;
+  --wn: #D8A35E;
+  --wnb: #2E2417;
+  --sb: #120F0D;
+  --sh: 0 1px 2px rgba(0,0,0,.3);
+  --shl: 0 18px 48px rgba(0,0,0,.55);
+  --ov: rgba(0,0,0,.5);
+}

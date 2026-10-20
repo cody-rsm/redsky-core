@@ -1,0 +1,35 @@
+# dependencies
+/node_modules
+
+# build output
+/.next/
+/out/
+/build
+/dist
+*.tsbuildinfo
+next-env.d.ts
+
+# tests
+/coverage
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+
+# env — never commit real values; .env.example documents every variable
+.env
+.env.*
+!.env.example
+
+# local data — assessment PDFs, uploads and database files never belong in git
+/.data/
+/uploads/
+*.pdf
+# The RSM brand guide that shipped with the prototype stays out of git; its tokens live in src/styles.
+*.pem
+*.key
+
+# misc
+.DS_Store
+npm-debug.log*
+.vercel

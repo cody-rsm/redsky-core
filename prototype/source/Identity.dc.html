@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RedSky identity and components</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Faculty+Glyphic&amp;family=Fira+Mono:wght@400;500&amp;family=Fira+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#941B1E}a:hover{color:#7D1619}
+.ids *{box-sizing:border-box}
+.ids .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:#736961}
+.ids .serif{font-family:'Faculty Glyphic',Georgia,serif;font-weight:400}
+.ids .mono{font-family:'Fira Mono',ui-monospace,monospace}
+.ids .sw{border-radius:10px;padding:12px;height:104px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;font-size:11px}
+.ids .btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:7px;border:1px solid #E6E1D6;background:#FFFEFB;color:#1E1916;font:500 13px 'Fira Sans',sans-serif}
+.ids .chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:500;background:#F2EFE8;color:#5C534D}
+.ids .ic{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+</style>
+</helmet>
+<div class="ids" style="width:1200px;height:900px;background:#F7F5EF;color:#1E1916;font-family:'Fira Sans',system-ui,sans-serif;padding:56px 64px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px 56px;overflow:hidden">
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div class="lbl">RedSky · Identity</div>
+    <div style="display:flex;gap:16px">
+      <div style="flex:1;height:208px;border-radius:16px;background:#FFFEFB;border:1px solid #E6E1D6;display:flex;align-items:center;justify-content:center;gap:16px">
+        <svg viewBox="0 0 32 32" style="width:64px;height:64px" aria-hidden="true"><path d="M4 7.4 16 4l12 3.4v17.2L16 28 4 24.6z" fill="#941B1E"></path><text x="16" y="20.6" text-anchor="middle" font-family="Faculty Glyphic, Georgia, serif" font-size="15.5" fill="#EEEBDF">R</text><path d="M9.5 23h13" stroke="#ECDCB9" stroke-width="1" stroke-linecap="round"></path></svg>
+        <div style="display:flex;flex-direction:column;gap:6px"><span class="serif" style="font-size:44px;line-height:1">RedSky</span><span style="font-size:11px;letter-spacing:.2em;color:#736961">RSM CAPITAL</span></div>
+      </div>
+      <div style="width:208px;height:208px;border-radius:16px;background:#231714;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+        <svg viewBox="0 0 32 32" style="width:72px;height:72px" aria-hidden="true"><path d="M4 7.4 16 4l12 3.4v17.2L16 28 4 24.6z" fill="#941B1E"></path><text x="16" y="20.6" text-anchor="middle" font-family="Faculty Glyphic, Georgia, serif" font-size="15.5" fill="#EEEBDF">R</text><path d="M9.5 23h13" stroke="#ECDCB9" stroke-width="1" stroke-linecap="round"></path></svg>
+        <span class="serif" style="font-size:22px;color:#EEEBDF">RedSky</span>
+      </div>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#5C534D;max-width:520px">An original mark for RSM Capital's internal operating system: the badge silhouette echoes RSM's alternate logo, with a serif R set above a horizon line — the sky over the work. It never replaces the RSM Capital primary logo.</p>
+    <div class="lbl" style="margin-top:6px">Palette · from the RSM brand guide</div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+      <div class="sw" style="background:#941B1E;color:#EEEBDF"><b style="font-weight:600">Crimson</b><span class="mono">#941B1E · accent</span></div>
+      <div class="sw" style="background:#5B332E;color:#EEEBDF"><b style="font-weight:600">Coffee</b><span class="mono">#5B332E · depth</span></div>
+      <div class="sw" style="background:#162F1C;color:#CCD9E2"><b style="font-weight:600">Cactus</b><span class="mono">#162F1C · positive</span></div>
+      <div class="sw" style="background:#78522B;color:#ECDCB9"><b style="font-weight:600">Leatherbound</b><span class="mono">#78522B · warning</span></div>
+      <div class="sw" style="background:#EEEBDF;color:#5B332E;border:1px solid #E6E1D6"><b style="font-weight:600">Dust Cloud</b><span class="mono">#EEEBDF · ground</span></div>
+      <div class="sw" style="background:#ECDCB9;color:#5B332E"><b style="font-weight:600">Palomino</b><span class="mono">#ECDCB9 · highlight</span></div>
+      <div class="sw" style="background:#CCD9E2;color:#162F1C"><b style="font-weight:600">Whisper</b><span class="mono">#CCD9E2 · AI</span></div>
+      <div class="sw" style="background:#161210;color:#EEEBDF"><b style="font-weight:600">Night</b><span class="mono">#161210 · dark mode</span></div>
+    </div>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div class="lbl">Typography</div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:16px;background:#FFFEFB;border:1px solid #E6E1D6">
+      <div style="display:flex;align-items:baseline;gap:16px"><span class="serif" style="font-size:40px;line-height:1.05">Good morning, Cody.</span></div>
+      <div style="font-size:12px;color:#736961">Faculty Glyphic — display, greetings, record titles (the brand's special-use face)</div>
+      <div style="height:1px;background:#E6E1D6"></div>
+      <div style="font-size:15px;line-height:1.55">Fira Sans carries the interface: navigation, tables, forms and body copy. It is the brand's body face, tuned for dense data.</div>
+      <div style="font-size:12px;color:#736961">Fira Sans 400 / 500 / 600 — UI and body</div>
+      <div style="height:1px;background:#E6E1D6"></div>
+      <div class="mono" style="font-size:14px">$86M · 14 deals · +3 wk · ⌘K</div>
+      <div style="font-size:12px;color:#736961">Fira Mono — figures, keyboard hints and identifiers</div>
+    </div>
+    <div class="lbl" style="margin-top:6px">Core components</div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:16px;background:#FFFEFB;border:1px solid #E6E1D6">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="btn" style="background:#941B1E;border-color:#941B1E;color:#fff">Enter RedSky</span>
+        <span class="btn">Secondary</span>
+        <span class="btn" style="background:#EAF0F5;border-color:#CCD9E2;color:#2F5674"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"></path></svg>Prepare with RedSky AI</span>
+        <span style="width:34px;height:20px;border-radius:10px;background:#941B1E;position:relative;display:inline-block"><span style="position:absolute;top:2px;left:16px;width:16px;height:16px;border-radius:50%;background:#fff"></span></span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="chip" style="background:#E4EEE6;color:#2E6A45">● Connected</span>
+        <span class="chip" style="background:transparent;border:1px solid #E6E1D6">● Available to connect</span>
+        <span class="chip" style="background:#F4EAD9;color:#8A5A1F">● Requires administrator setup</span>
+        <span class="chip">● Coming soon</span>
+        <span class="chip" style="background:#F6E9E6;color:#941B1E">Next · in 52 min</span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+        <div style="border:1px solid #E6E1D6;border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.5"><div class="lbl" style="margin-bottom:4px">Recorded</div>Promised permitting comments on Sep 24 — not yet sent.</div>
+        <div style="border:1px solid #CCD9E2;background:#EAF0F5;border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.5"><div class="lbl" style="margin-bottom:4px;color:#2F5674">AI suggested</div>Send the comments and propose a call before Thursday's markup.</div>
+      </div>
+      <div style="font-size:12px;color:#5C534D;line-height:1.5">Facts are neutral and labelled Recorded. Anything RedSky AI infers sits on Whisper blue and is labelled. Actions that change records always pass through a confirmation step.</div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

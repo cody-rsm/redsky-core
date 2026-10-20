@@ -1,0 +1,24 @@
+/* Additions to the ported prototype stylesheet. Each one supports production behavior the prototype simulated
+   (Radix-positioned popovers, loading/error states, sign-in) and reuses the prototype tokens. */
+@layer components {
+  /* Radix positions popovers through its own wrapper, so the prototype's absolute offset must not apply. */
+  .pop.pop-r{position:relative;top:auto;right:auto;bottom:auto;left:auto}
+  .drawer:focus,.modal:focus,.aip:focus{outline:none}
+  /* Radix menus move a highlight with the keyboard instead of focus rings on each item. */
+  .mi[data-highlighted]{background:var(--hov);outline:none}
+  .sk-load{background:var(--sf2);border-radius:4px;animation:rsPulse 1.6s ease-in-out infinite}
+  .wstate{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:22px 18px;color:var(--tx2);font-size:12.5px}
+  .wstate b{color:var(--tx);font-weight:600;font-size:13px}
+  .auth{min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+  .auth-card{width:min(420px,100%);background:var(--sf);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh);padding:28px;display:flex;flex-direction:column;gap:16px}
+  .aul{list-style:disc}
+  .md-answer p+p{margin-top:8px}
+  .field-err{font-size:11.5px;color:var(--act)}
+  .input[aria-invalid=true]{border-color:var(--act)}
+  .mb:focus-visible{outline:2px solid var(--act);outline-offset:1px}
+  /* Indeterminate progress for single-request work (e.g. a report upload) where no honest percentage exists. */
+  .bar-ind>span{width:36%;animation:rsIndet 1.3s ease-in-out infinite;transform-origin:center}
+  .ws-num{width:64px;height:30px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
+  .ws-miss{font-size:10.5px;color:var(--wn);font-weight:500}
+}
+@keyframes rsIndet{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}

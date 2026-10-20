@@ -1,0 +1,3043 @@
+{
+  "ROLES": [
+    {
+      "id": "exec",
+      "name": "Executive Leadership",
+      "desc": "Firm strategy, approvals and oversight across every team.",
+      "icon": "icon:crown"
+    },
+    {
+      "id": "vc",
+      "name": "Venture Capital / Investments",
+      "desc": "Sourcing, diligence, investment committee and portfolio support.",
+      "icon": "icon:trend"
+    },
+    {
+      "id": "energy",
+      "name": "Energy & Infrastructure",
+      "desc": "Project development, sites, partners and capital.",
+      "icon": "icon:bolt"
+    },
+    {
+      "id": "ga",
+      "name": "Government Affairs",
+      "desc": "Policy, legislation, agencies and public officials.",
+      "icon": "icon:capitol"
+    },
+    {
+      "id": "bd",
+      "name": "Business Development",
+      "desc": "Partnerships, introductions and strategic relationships.",
+      "icon": "icon:compass"
+    },
+    {
+      "id": "ops",
+      "name": "Operations & Administration",
+      "desc": "Calendars, vendors, office and internal process.",
+      "icon": "icon:sliders"
+    },
+    {
+      "id": "finance",
+      "name": "Finance & Accounting",
+      "desc": "Capital calls, reporting, budgets and controls.",
+      "icon": "icon:coins"
+    },
+    {
+      "id": "legal",
+      "name": "Legal & Compliance",
+      "desc": "Agreements, policies, filings and conflicts.",
+      "icon": "icon:scale"
+    },
+    {
+      "id": "research",
+      "name": "Research & Strategy",
+      "desc": "Markets, investment theses and institutional knowledge.",
+      "icon": "icon:flask"
+    }
+  ],
+  "ROLE_SHORT": {
+    "exec": "Executive Leadership",
+    "vc": "Investments",
+    "energy": "Energy & Infrastructure",
+    "ga": "Government Affairs",
+    "bd": "Business Development",
+    "ops": "Operations",
+    "finance": "Finance",
+    "legal": "Legal & Compliance",
+    "research": "Research & Strategy"
+  },
+  "DEPT_ROLES": {
+    "Executive Leadership": [
+      "exec"
+    ],
+    "Venture Capital / Investments": [
+      "vc"
+    ],
+    "Energy & Infrastructure": [
+      "energy"
+    ],
+    "Government Affairs & Business Development": [
+      "ga",
+      "bd"
+    ],
+    "Operations & Administration": [
+      "ops"
+    ],
+    "Finance & Accounting": [
+      "finance"
+    ],
+    "Legal & Compliance": [
+      "legal"
+    ],
+    "Research & Strategy": [
+      "research"
+    ]
+  },
+  "ROLE_FLOWS": {
+    "exec": [
+      "Approval queue",
+      "Executive brief"
+    ],
+    "vc": [
+      "Deal screening",
+      "Diligence checklists"
+    ],
+    "energy": [
+      "Site & permitting tracking"
+    ],
+    "ga": [
+      "Policy tracking",
+      "Official-interaction logging"
+    ],
+    "bd": [
+      "Introductions & follow-ups",
+      "Partner mapping"
+    ],
+    "ops": [
+      "Request intake"
+    ],
+    "finance": [
+      "Capital call tracking"
+    ],
+    "legal": [
+      "Conflict checks"
+    ],
+    "research": [
+      "Research briefs"
+    ]
+  },
+  "ROLE_W": {
+    "exec": [
+      "approvals",
+      "relationships",
+      "pipeline",
+      "projects",
+      "intel",
+      "team"
+    ],
+    "vc": [
+      "pipeline",
+      "meetings",
+      "attention",
+      "portfolio",
+      "documents",
+      "intel"
+    ],
+    "energy": [
+      "projects",
+      "meetings",
+      "govaffairs",
+      "intel",
+      "documents"
+    ],
+    "ga": [
+      "govaffairs",
+      "relationships",
+      "meetings",
+      "intel",
+      "projects"
+    ],
+    "bd": [
+      "relationships",
+      "meetings",
+      "projects",
+      "pipeline",
+      "airecs"
+    ],
+    "ops": [
+      "attention",
+      "projects",
+      "team",
+      "documents"
+    ],
+    "finance": [
+      "portfolio",
+      "pipeline",
+      "documents",
+      "approvals"
+    ],
+    "legal": [
+      "documents",
+      "attention",
+      "govaffairs",
+      "approvals"
+    ],
+    "research": [
+      "intel",
+      "documents",
+      "portfolio",
+      "airecs"
+    ]
+  },
+  "GOAL_W": {
+    "relationships": [
+      "relationships"
+    ],
+    "meetings": [
+      "meetings"
+    ],
+    "investments": [
+      "pipeline"
+    ],
+    "projects": [
+      "projects"
+    ],
+    "portfolio": [
+      "portfolio"
+    ],
+    "industry": [
+      "intel"
+    ],
+    "tasks": [
+      "attention"
+    ],
+    "docs": [
+      "documents"
+    ],
+    "leadership": [
+      "team",
+      "approvals"
+    ]
+  },
+  "BASE": [
+    "attention",
+    "meetings",
+    "relationships",
+    "govaffairs",
+    "projects",
+    "airecs",
+    "intel",
+    "approvals",
+    "pipeline",
+    "portfolio",
+    "documents",
+    "team"
+  ],
+  "W": {
+    "brief": {
+      "name": "Daily Brief",
+      "desc": "An AI-synthesized summary of your day.",
+      "icon": "icon:sun",
+      "k": "brief",
+      "def": 12
+    },
+    "attention": {
+      "name": "Needs Your Attention",
+      "desc": "My Tasks, follow-ups and requests, prioritized.",
+      "icon": "icon:tasks",
+      "k": "list",
+      "def": 8
+    },
+    "meetings": {
+      "name": "Today's Meetings",
+      "desc": "Schedule, attendees and AI preparation.",
+      "icon": "icon:calendar",
+      "k": "cards",
+      "def": 4
+    },
+    "relationships": {
+      "name": "Relationships to Reconnect",
+      "desc": "Important people who warrant attention now.",
+      "icon": "icon:people",
+      "k": "cards",
+      "def": 6
+    },
+    "pipeline": {
+      "name": "Investment Pipeline",
+      "desc": "Stage counts, value and movement.",
+      "icon": "icon:pipeline",
+      "k": "chart",
+      "def": 6
+    },
+    "portfolio": {
+      "name": "Portfolio Watchlist",
+      "desc": "Updates from companies you follow.",
+      "icon": "icon:portfolio",
+      "k": "list",
+      "def": 6
+    },
+    "projects": {
+      "name": "Active Projects",
+      "desc": "Initiatives, milestones and blockers.",
+      "icon": "icon:folder",
+      "k": "cards",
+      "def": 6
+    },
+    "documents": {
+      "name": "Recent Documents",
+      "desc": "Files you and your team touched.",
+      "icon": "icon:doc",
+      "k": "list",
+      "def": 4
+    },
+    "intel": {
+      "name": "Intelligence Feed",
+      "desc": "News & market intelligence, with why it matters.",
+      "icon": "icon:globe",
+      "k": "feed",
+      "def": 6
+    },
+    "govaffairs": {
+      "name": "Government Affairs Monitor",
+      "desc": "Legislation and proceedings you track.",
+      "icon": "icon:capitol",
+      "k": "timeline",
+      "def": 6
+    },
+    "airecs": {
+      "name": "AI Recommendations",
+      "desc": "Suggested next steps from RedSky AI.",
+      "icon": "icon:ai",
+      "k": "feed",
+      "def": 4
+    },
+    "team": {
+      "name": "Team Activity",
+      "desc": "What colleagues on your work did recently.",
+      "icon": "icon:activity",
+      "k": "list",
+      "def": 4
+    },
+    "approvals": {
+      "name": "Decisions Awaiting You",
+      "desc": "Approvals and sign-offs in your queue.",
+      "icon": "icon:diligence",
+      "k": "list",
+      "def": 6
+    }
+  },
+  "W_ORDER": [
+    "brief",
+    "attention",
+    "meetings",
+    "relationships",
+    "govaffairs",
+    "projects",
+    "pipeline",
+    "intel",
+    "airecs",
+    "approvals",
+    "portfolio",
+    "documents",
+    "team"
+  ],
+  "GOALS": [
+    {
+      "id": "relationships",
+      "label": "Staying on top of relationships",
+      "icon": "icon:people"
+    },
+    {
+      "id": "meetings",
+      "label": "Preparing for meetings",
+      "icon": "icon:calendar"
+    },
+    {
+      "id": "investments",
+      "label": "Tracking investment opportunities",
+      "icon": "icon:pipeline"
+    },
+    {
+      "id": "projects",
+      "label": "Managing projects",
+      "icon": "icon:folder"
+    },
+    {
+      "id": "portfolio",
+      "label": "Following portfolio companies",
+      "icon": "icon:portfolio"
+    },
+    {
+      "id": "industry",
+      "label": "Monitoring industry developments",
+      "icon": "icon:globe"
+    },
+    {
+      "id": "tasks",
+      "label": "Managing tasks and follow-ups",
+      "icon": "icon:tasks"
+    },
+    {
+      "id": "docs",
+      "label": "Finding documents and research",
+      "icon": "icon:doc"
+    },
+    {
+      "id": "leadership",
+      "label": "Keeping leadership informed",
+      "icon": "icon:crown"
+    }
+  ],
+  "LANDINGS": [
+    {
+      "id": "brief",
+      "label": "My Daily Brief",
+      "desc": "An AI summary of the day ahead",
+      "icon": "icon:sun",
+      "tab": "overview"
+    },
+    {
+      "id": "tasks",
+      "label": "My Tasks",
+      "desc": "What needs your attention",
+      "icon": "icon:tasks",
+      "tab": "tasks"
+    },
+    {
+      "id": "relationships",
+      "label": "My Relationships",
+      "desc": "People to reconnect with",
+      "icon": "icon:people",
+      "tab": "relationships"
+    },
+    {
+      "id": "projects",
+      "label": "My Projects",
+      "desc": "Initiatives and milestones",
+      "icon": "icon:folder",
+      "tab": "projects"
+    },
+    {
+      "id": "pipeline",
+      "label": "Investment Pipeline",
+      "desc": "Deal flow and movement",
+      "icon": "icon:pipeline",
+      "tab": "pipeline"
+    },
+    {
+      "id": "custom",
+      "label": "Custom Dashboard",
+      "desc": "Your own arrangement of widgets",
+      "icon": "icon:layout",
+      "tab": "overview"
+    }
+  ],
+  "DENSITY": [
+    {
+      "id": "focused",
+      "label": "Focused",
+      "desc": "Only what needs my attention",
+      "n": 3
+    },
+    {
+      "id": "balanced",
+      "label": "Balanced",
+      "desc": "A mix of priorities and context",
+      "n": 4
+    },
+    {
+      "id": "comprehensive",
+      "label": "Comprehensive",
+      "desc": "A full operational overview",
+      "n": 6
+    }
+  ],
+  "AI_STYLES": [
+    {
+      "id": "concise",
+      "label": "Concise",
+      "desc": "Short, actionable responses",
+      "sample": "Ridgeline at 9:30. Send Priya the revised term outline first — it is due today."
+    },
+    {
+      "id": "analytical",
+      "label": "Analytical",
+      "desc": "Detailed research and reasoning",
+      "sample": "Ridgeline's revised interconnection date (from the Oct 9 call) moves the LOI critical path. Three open items, in order of dependency…"
+    },
+    {
+      "id": "executive",
+      "label": "Executive",
+      "desc": "High-level summaries and recommendations",
+      "sample": "Bottom line: the partnership is on track, but the LOI depends on the interconnection date. Recommend confirming it today."
+    }
+  ],
+  "AI_CAPS": [
+    {
+      "label": "Identify follow-up tasks from email",
+      "icon": "icon:tasks",
+      "live": true
+    },
+    {
+      "label": "Summarize documents",
+      "icon": "icon:doc",
+      "live": true
+    },
+    {
+      "label": "Prepare for meetings",
+      "icon": "icon:calendar"
+    },
+    {
+      "label": "Research companies and people",
+      "icon": "icon:search"
+    },
+    {
+      "label": "Find information across authorized systems",
+      "icon": "icon:graph"
+    },
+    {
+      "label": "Draft internal briefs",
+      "icon": "icon:edit"
+    },
+    {
+      "label": "Ask about RSM's institutional knowledge",
+      "icon": "icon:book"
+    }
+  ],
+  "INTEG": [
+    {
+      "id": "m365",
+      "name": "Microsoft 365",
+      "mono": "M365",
+      "logo": "assets/logos/microsoft365.svg",
+      "grp": "prod",
+      "tone": 0,
+      "kind": "Identity & directory",
+      "enables": "Single sign-on, your directory profile and permissions.",
+      "access": "Signed in with Microsoft Entra ID"
+    },
+    {
+      "id": "mail",
+      "name": "Outlook Email",
+      "mono": "Ol",
+      "logo": "assets/logos/outlook.svg",
+      "grp": "prod",
+      "tone": 0,
+      "kind": "Email",
+      "enables": "Turn important threads into relationship history and follow-ups — or forward to redsky@rsmcapital.com.",
+      "access": "Reads only messages you forward or flag"
+    },
+    {
+      "id": "cal",
+      "name": "Outlook Calendar",
+      "mono": "Ca",
+      "logo": "assets/logos/outlook.svg",
+      "grp": "prod",
+      "tone": 0,
+      "kind": "Calendar",
+      "enables": "Today's meetings with attendees, related deals and AI preparation briefs.",
+      "access": "Reads events on your calendar"
+    },
+    {
+      "id": "teams",
+      "name": "Microsoft Teams",
+      "mono": "Tm",
+      "logo": "assets/logos/teams.svg",
+      "grp": "prod",
+      "tone": 4,
+      "kind": "Chat & meetings",
+      "enables": "Surface decisions and notes from meetings you attend; deliver your Daily Brief.",
+      "access": "Reads meeting notes you can already see"
+    },
+    {
+      "id": "sp",
+      "name": "OneDrive / SharePoint",
+      "mono": "Sp",
+      "logo": "assets/logos/onedrive.svg",
+      "grp": "prod",
+      "tone": 2,
+      "kind": "Documents",
+      "enables": "Search and link documents to deals, projects and people.",
+      "access": "Respects existing SharePoint permissions"
+    },
+    {
+      "id": "alphasense",
+      "name": "AlphaSense",
+      "mono": "As",
+      "grp": "inv",
+      "tone": 1,
+      "kind": "Market research",
+      "enables": "Expert calls and research inside company profiles and briefs.",
+      "access": "Firm license — configured by an administrator",
+      "roles": [
+        "vc",
+        "research",
+        "exec"
+      ]
+    },
+    {
+      "id": "harmonic",
+      "name": "Harmonic",
+      "mono": "Hm",
+      "grp": "inv",
+      "tone": 3,
+      "kind": "Venture sourcing",
+      "enables": "Company signals, hiring trends and sourcing alerts.",
+      "access": "Firm license — configured by an administrator",
+      "roles": [
+        "vc",
+        "research"
+      ]
+    },
+    {
+      "id": "carta",
+      "name": "Carta",
+      "mono": "Ct",
+      "grp": "inv",
+      "tone": 2,
+      "kind": "Cap tables",
+      "enables": "Portfolio ownership and cap-table context on company records.",
+      "access": "Read-only portfolio access",
+      "roles": [
+        "vc",
+        "finance",
+        "exec"
+      ]
+    },
+    {
+      "id": "pitchbook",
+      "name": "PitchBook",
+      "mono": "Pb",
+      "grp": "inv",
+      "tone": 5,
+      "kind": "Private markets",
+      "enables": "Comparable transactions and deal history.",
+      "access": "Licensing under review",
+      "roles": [
+        "vc",
+        "research"
+      ]
+    },
+    {
+      "id": "godel",
+      "name": "Gödel Terminal",
+      "mono": "Gö",
+      "grp": "inv",
+      "tone": 4,
+      "kind": "Market data",
+      "enables": "Market data and terminal workflows — evaluation in progress.",
+      "access": "Integration being verified",
+      "roles": [
+        "vc",
+        "finance"
+      ]
+    },
+    {
+      "id": "legistorm",
+      "name": "LegiStorm",
+      "mono": "Ls",
+      "grp": "gov",
+      "tone": 1,
+      "kind": "Government relations",
+      "enables": "Track legislation, staff and officials alongside your relationships.",
+      "access": "Firm license — configured by an administrator",
+      "roles": [
+        "ga",
+        "legal",
+        "exec"
+      ]
+    },
+    {
+      "id": "opensecrets",
+      "name": "OpenSecrets",
+      "mono": "Os",
+      "grp": "gov",
+      "tone": 3,
+      "kind": "Public data",
+      "enables": "Campaign-finance and lobbying context on organizations.",
+      "access": "Public data source",
+      "roles": [
+        "ga",
+        "research"
+      ]
+    },
+    {
+      "id": "plaud",
+      "name": "Plaud",
+      "mono": "Pl",
+      "grp": "prod",
+      "tone": 5,
+      "kind": "Meeting recorder",
+      "enables": "Bring Plaud recordings, transcripts and summaries into meeting notes and follow-ups.",
+      "access": "Only recordings you choose to share"
+    },
+    {
+      "id": "superhuman",
+      "name": "Superhuman Mail",
+      "mono": "Su",
+      "grp": "prod",
+      "tone": 1,
+      "kind": "Email",
+      "enables": "Log Superhuman threads and reminders to relationship history and My Tasks.",
+      "access": "Only threads you choose to log"
+    },
+    {
+      "id": "todoist",
+      "name": "Todoist",
+      "mono": "Td",
+      "logo": "assets/logos/todoist.svg",
+      "grp": "prod",
+      "tone": 3,
+      "kind": "Task manager",
+      "enables": "Keep Todoist tasks and My Tasks in sync, with links to deals and projects.",
+      "access": "Tasks in projects you select"
+    }
+  ],
+  "INTEG_GROUPS": [
+    {
+      "id": "prod",
+      "name": "Productivity",
+      "desc": "Microsoft 365 is RSM’s system of record for email, calendar and files."
+    },
+    {
+      "id": "inv",
+      "name": "Investment Intelligence",
+      "desc": "Research and data providers for the investment team."
+    },
+    {
+      "id": "gov",
+      "name": "Government Affairs & Research",
+      "desc": "Legislative and public-interest data."
+    }
+  ],
+  "PEOPLE": {
+    "c1": {
+      "name": "Priya Raman",
+      "title": "VP, Strategic Partnerships",
+      "org": "Ridgeline Grid Storage",
+      "owner": "Tom Becker",
+      "strength": "Strong",
+      "tone": 3,
+      "last": "Oct 9 · Call — interconnection timeline",
+      "fact": "Asked for a revised term outline before the next meeting.",
+      "suggest": "Send the revised outline before 9:30 and confirm LOI owners in the meeting.",
+      "act": [
+        {
+          "d": "Oct 9",
+          "t": "Call — walked through the revised interconnection timeline (Tom Becker)"
+        },
+        {
+          "d": "Sep 18",
+          "t": "Site visit — Gulf Coast facility"
+        },
+        {
+          "d": "Aug 27",
+          "t": "NDA executed"
+        }
+      ]
+    },
+    "c2": {
+      "name": "Daniel Okafor",
+      "title": "Senior Policy Advisor",
+      "org": "State Office of Energy Policy (sample)",
+      "owner": "@ga",
+      "strength": "Warm",
+      "tone": 4,
+      "gov": true,
+      "last": "Sep 30 · Meeting — permitting briefing",
+      "fact": "Meeting today at 11:00 AM; asked in September for site-level permitting data.",
+      "suggest": "Bring RSM's site-level permitting-delay data he asked about.",
+      "act": [
+        {
+          "d": "Sep 30",
+          "t": "Meeting — permitting reform briefing"
+        },
+        {
+          "d": "Sep 12",
+          "t": "Email — shared coalition principles"
+        },
+        {
+          "d": "Jul 22",
+          "t": "Event — energy policy roundtable"
+        }
+      ]
+    },
+    "c3": {
+      "name": "Dana Kim",
+      "title": "CEO",
+      "org": "Halcyon Robotics",
+      "owner": "Marcus Chen",
+      "strength": "New",
+      "tone": 2,
+      "last": "Oct 12 · Intro email via Jordan Alvarez",
+      "fact": "New relationship, introduced by Jordan Alvarez. Term sheet expected Nov 14.",
+      "suggest": "After today's intro, send the data-room request and a short RSM overview.",
+      "act": [
+        {
+          "d": "Oct 14",
+          "t": "Series B deck received via email capture"
+        },
+        {
+          "d": "Oct 12",
+          "t": "Introduced by Jordan Alvarez (Brightline Ventures)"
+        }
+      ]
+    },
+    "c4": {
+      "name": "Jordan Alvarez",
+      "title": "Partner",
+      "org": "Brightline Ventures",
+      "owner": "Marcus Chen",
+      "strength": "Strong",
+      "tone": 0,
+      "last": "Oct 12 · Email — Halcyon introduction",
+      "fact": "Introduced Halcyon Robotics on Oct 12.",
+      "suggest": "Thank Jordan after today's 2:30 intro and share next steps.",
+      "act": [
+        {
+          "d": "Oct 12",
+          "t": "Email — introduced Dana Kim, Halcyon Robotics"
+        },
+        {
+          "d": "Aug 4",
+          "t": "Lunch — co-investment pipeline"
+        }
+      ]
+    },
+    "c5": {
+      "name": "Elena Sorensen",
+      "title": "Director of Public Affairs",
+      "org": "Atlas Transmission Co.",
+      "owner": "@ga",
+      "strength": "Cooling",
+      "tone": 1,
+      "last": "Sep 24 · Coffee — coalition strategy",
+      "fact": "Promised permitting comments on Sep 24 — not yet sent.",
+      "suggest": "Send the comments and propose a call before Thursday's markup.",
+      "act": [
+        {
+          "d": "Sep 24",
+          "t": "Coffee — coalition strategy; RSM to send permitting comments"
+        },
+        {
+          "d": "Aug 19",
+          "t": "Email — coalition membership"
+        }
+      ]
+    },
+    "c6": {
+      "name": "Raymond Hsu",
+      "title": "Managing Director",
+      "org": "Keystone Infrastructure Partners",
+      "owner": "Eleanor Vance",
+      "strength": "Warm",
+      "tone": 5,
+      "last": "Aug 30 · Email — co-investment terms",
+      "fact": "Co-investor on Ridgeline; no contact in 50 days.",
+      "suggest": "Re-engage before the Ridgeline IC on Oct 28 — ask about their allocation.",
+      "act": [
+        {
+          "d": "Aug 30",
+          "t": "Email — Ridgeline co-investment terms"
+        },
+        {
+          "d": "Jul 11",
+          "t": "Dinner — infrastructure outlook"
+        }
+      ]
+    },
+    "c7": {
+      "name": "Tom Becker",
+      "title": "VP, Energy & Infrastructure",
+      "org": "RSM Capital",
+      "internal": true,
+      "tone": 3
+    },
+    "c8": {
+      "name": "Aisha Patel",
+      "title": "Associate, Energy & Infrastructure",
+      "org": "RSM Capital",
+      "internal": true,
+      "tone": 2
+    },
+    "c9": {
+      "name": "Sofia Marquez",
+      "title": "Chief of Staff",
+      "org": "RSM Capital",
+      "internal": true,
+      "tone": 4
+    },
+    "c10": {
+      "name": "Hannah Brooks",
+      "title": "Analyst, Investments",
+      "org": "RSM Capital",
+      "internal": true,
+      "tone": 5
+    },
+    "c11": {
+      "name": "Victor Lang",
+      "title": "CFO",
+      "org": "Tessellate Energy",
+      "owner": "Marcus Chen",
+      "strength": "Warm",
+      "tone": 3,
+      "last": "Oct 16 · Email — updated financial model",
+      "fact": "Sent an updated model on Oct 16; three questions outstanding.",
+      "suggest": "Send the three model questions from the memo review before Friday.",
+      "act": [
+        {
+          "d": "Oct 16",
+          "t": "Email — updated financial model"
+        }
+      ]
+    },
+    "c12": {
+      "name": "Natalie Ford",
+      "title": "General Partner",
+      "org": "Cobalt Peak Capital",
+      "owner": "Eleanor Vance",
+      "strength": "Strong",
+      "tone": 0,
+      "last": "Sep 15 · Dinner — co-investment pipeline",
+      "fact": "Co-led two prior deals with RSM.",
+      "suggest": "Share the Q3 portfolio letter when final and invite her to the LP meeting.",
+      "act": [
+        {
+          "d": "Sep 15",
+          "t": "Dinner — co-investment pipeline"
+        }
+      ]
+    },
+    "c13": {
+      "name": "Marcus Chen",
+      "title": "Principal, Venture Investments",
+      "org": "RSM Capital",
+      "internal": true,
+      "tone": 4
+    },
+    "c14": {
+      "name": "Eleanor Vance",
+      "title": "Managing Partner",
+      "org": "RSM Capital",
+      "internal": true,
+      "tone": 0
+    }
+  },
+  "RECON": {
+    "ga": [
+      "c5",
+      "c6",
+      "c4",
+      "c2"
+    ],
+    "exec": [
+      "c6",
+      "c12",
+      "c4",
+      "c1"
+    ],
+    "vc": [
+      "c4",
+      "c11",
+      "c12",
+      "c3"
+    ]
+  },
+  "DEALS": {
+    "d1": {
+      "name": "Halcyon Robotics",
+      "round": "Series B",
+      "amount": "$12.0M",
+      "stage": 1,
+      "lead": "Marcus Chen",
+      "sector": "Industrial robotics",
+      "activity": "Intro call today, 2:30 PM",
+      "change": "Added → Initial Review"
+    },
+    "d2": {
+      "name": "Ridgeline Grid Storage",
+      "round": "Growth equity",
+      "amount": "$18.0M",
+      "stage": 3,
+      "lead": "Tom Becker",
+      "sector": "Energy storage",
+      "activity": "IC scheduled Oct 28",
+      "change": "Diligence → IC"
+    },
+    "d3": {
+      "name": "Corvid Analytics",
+      "round": "Series A",
+      "amount": "$6.0M",
+      "stage": 2,
+      "lead": "Hannah Brooks",
+      "sector": "Industrial software",
+      "activity": "4 of 6 customer references complete",
+      "change": "Review → Diligence"
+    },
+    "d4": {
+      "name": "Tessellate Energy",
+      "round": "Seed",
+      "amount": "$3.0M",
+      "stage": 1,
+      "lead": "Hannah Brooks",
+      "sector": "Grid software",
+      "activity": "Investment memo uploaded Oct 17",
+      "change": "Memo uploaded"
+    },
+    "d5": {
+      "name": "Meridian Water Systems",
+      "round": "Series A",
+      "amount": "$8.0M",
+      "stage": 4,
+      "lead": "Marcus Chen",
+      "sector": "Water infrastructure",
+      "activity": "Term sheet redlines returned Oct 16",
+      "change": "Redlines returned"
+    },
+    "d6": {
+      "name": "Lumen Freight",
+      "round": "Seed",
+      "amount": "$2.5M",
+      "stage": 0,
+      "lead": "Marcus Chen",
+      "sector": "Logistics",
+      "activity": "Flagged by sourcing signal (sample)",
+      "change": "New"
+    },
+    "d7": {
+      "name": "Quarry Labs",
+      "round": "Series A",
+      "amount": "$5.0M",
+      "stage": 0,
+      "lead": "Hannah Brooks",
+      "sector": "Materials",
+      "activity": "Intro requested via Brightline",
+      "change": "New"
+    },
+    "d8": {
+      "name": "Orchard Health",
+      "round": "Series A",
+      "amount": "$7.0M",
+      "stage": 5,
+      "lead": "Hannah Brooks",
+      "sector": "Digital health",
+      "activity": "Closed in Q2; in portfolio",
+      "change": "—"
+    }
+  },
+  "STAGES": [
+    "Sourcing",
+    "Initial Review",
+    "Due Diligence",
+    "Investment Committee",
+    "Negotiation",
+    "Closed / Portfolio"
+  ],
+  "STAGE_STATS": [
+    {
+      "count": 14,
+      "value": "$86M",
+      "delta": "+3",
+      "dir": "up"
+    },
+    {
+      "count": 9,
+      "value": "$61M",
+      "delta": "+1",
+      "dir": "up"
+    },
+    {
+      "count": 5,
+      "value": "$42M",
+      "delta": "+1",
+      "dir": "up"
+    },
+    {
+      "count": 2,
+      "value": "$26M",
+      "delta": "+1",
+      "dir": "up"
+    },
+    {
+      "count": 2,
+      "value": "$15M",
+      "delta": "0",
+      "dir": "flat"
+    },
+    {
+      "count": 23,
+      "value": "Portfolio",
+      "delta": "0",
+      "dir": "flat"
+    }
+  ],
+  "PROJECTS": {
+    "p1": {
+      "name": "Gulf Coast Storage Partnership",
+      "kind": "External · Business development",
+      "status": "On track",
+      "tone": "ok",
+      "owner": "Tom Becker",
+      "ownerTone": 3,
+      "activity": "Priya Raman shared a revised interconnection timeline · 2d ago",
+      "milestone": "LOI draft",
+      "mdate": "Oct 30",
+      "tasks": 2,
+      "pct": 55,
+      "pids": [
+        "ga",
+        "exec"
+      ]
+    },
+    "p2": {
+      "name": "Grid Permitting Reform Coalition",
+      "kind": "Government affairs",
+      "status": "At risk",
+      "tone": "ac",
+      "owner": "@ga",
+      "ownerTone": 1,
+      "activity": "Committee markup moved up to Thu, Oct 22 · today",
+      "milestone": "Stakeholder memo",
+      "mdate": "Oct 21",
+      "tasks": 3,
+      "pct": 40,
+      "pids": [
+        "ga",
+        "exec"
+      ]
+    },
+    "p3": {
+      "name": "Lone Star Microgrid Site Selection",
+      "kind": "Energy & infrastructure",
+      "status": "On track",
+      "tone": "ok",
+      "owner": "Aisha Patel",
+      "ownerTone": 2,
+      "activity": "Two sites cleared the environmental screen · 4d ago",
+      "milestone": "Site shortlist",
+      "mdate": "Nov 6",
+      "tasks": 1,
+      "pct": 30,
+      "pids": [
+        "ga",
+        "exec"
+      ]
+    },
+    "p4": {
+      "name": "RedSky Phase 1 Rollout",
+      "kind": "Internal initiative",
+      "status": "On track",
+      "tone": "ok",
+      "owner": "Sofia Marquez",
+      "ownerTone": 4,
+      "activity": "Email-capture pilot live for six users · 1d ago",
+      "milestone": "Connected CRM pilot",
+      "mdate": "Nov 15",
+      "tasks": 1,
+      "pct": 65,
+      "pids": [
+        "ga",
+        "exec",
+        "vc"
+      ]
+    },
+    "p5": {
+      "name": "Halcyon Robotics Diligence",
+      "kind": "Investment",
+      "status": "Starting",
+      "tone": "n",
+      "owner": "Marcus Chen",
+      "ownerTone": 4,
+      "activity": "Data room access requested · 1d ago",
+      "milestone": "IC memo draft",
+      "mdate": "Nov 9",
+      "tasks": 4,
+      "pct": 10,
+      "pids": [
+        "vc"
+      ]
+    },
+    "p6": {
+      "name": "Annual LP Meeting 2026",
+      "kind": "Internal initiative",
+      "status": "Needs decision",
+      "tone": "wn",
+      "owner": "Sofia Marquez",
+      "ownerTone": 4,
+      "activity": "Venue contract awaiting approval · 3d ago",
+      "milestone": "Agenda final",
+      "mdate": "Nov 2",
+      "tasks": 2,
+      "pct": 45,
+      "pids": [
+        "exec"
+      ]
+    },
+    "p7": {
+      "name": "Climate Infrastructure Thesis Refresh",
+      "kind": "Research",
+      "status": "On track",
+      "tone": "ok",
+      "owner": "Hannah Brooks",
+      "ownerTone": 5,
+      "activity": "Research pack added from AlphaSense (sample) · 3d ago",
+      "milestone": "Draft thesis",
+      "mdate": "Nov 12",
+      "tasks": 1,
+      "pct": 35,
+      "pids": [
+        "vc"
+      ]
+    }
+  },
+  "DOCS": {
+    "doc1": {
+      "name": "Ridgeline — Partnership term outline v3",
+      "kind": "Word",
+      "meta": "SharePoint · edited by Tom Becker · Oct 15",
+      "pids": [
+        "ga",
+        "exec"
+      ]
+    },
+    "doc2": {
+      "name": "Stakeholder memo — permitting reform (draft)",
+      "kind": "Word",
+      "meta": "OneDrive · edited by you · Oct 16",
+      "pids": [
+        "ga"
+      ]
+    },
+    "doc3": {
+      "name": "Halcyon Robotics — Series B deck",
+      "kind": "PDF",
+      "meta": "Email capture · Oct 14",
+      "pids": [
+        "ga",
+        "vc"
+      ]
+    },
+    "doc4": {
+      "name": "Tessellate Energy — Seed investment memo",
+      "kind": "Word",
+      "meta": "SharePoint · Hannah Brooks · Oct 17",
+      "pids": [
+        "vc",
+        "exec"
+      ]
+    },
+    "doc5": {
+      "name": "Lone Star — site-selection memo",
+      "kind": "Word",
+      "meta": "SharePoint · Aisha Patel · Oct 16",
+      "pids": [
+        "ga"
+      ]
+    },
+    "doc6": {
+      "name": "Q3 portfolio letter (final draft)",
+      "kind": "Word",
+      "meta": "SharePoint · Hannah Brooks · Oct 18",
+      "pids": [
+        "exec",
+        "vc"
+      ]
+    },
+    "doc7": {
+      "name": "Gulf Coast interconnection study (summary)",
+      "kind": "PDF",
+      "meta": "SharePoint · Oct 9",
+      "pids": []
+    },
+    "doc8": {
+      "name": "Ridgeline IC pre-read (draft)",
+      "kind": "Word",
+      "meta": "SharePoint · Tom Becker · Oct 17",
+      "pids": [
+        "exec",
+        "vc"
+      ]
+    },
+    "doc9": {
+      "name": "Coalition principles v2",
+      "kind": "Word",
+      "meta": "SharePoint · Sep 12",
+      "pids": []
+    },
+    "doc10": {
+      "name": "Brightline introduction note",
+      "kind": "Email",
+      "meta": "Email capture · Oct 12",
+      "pids": []
+    }
+  },
+  "MEET": {
+    "m1": {
+      "time": "9:30 AM",
+      "start": 570,
+      "dur": "45 min",
+      "title": "Ridgeline × RSM — Interconnection partnership",
+      "org": "Ridgeline Grid Storage",
+      "people": [
+        "c1",
+        "c7"
+      ],
+      "rk": "project",
+      "rid": "p1",
+      "related": "Gulf Coast Storage Partnership",
+      "prep": "Brief ready",
+      "prepTone": "ok",
+      "where": "Microsoft Teams"
+    },
+    "m2": {
+      "time": "11:00 AM",
+      "start": 660,
+      "dur": "30 min",
+      "title": "Permitting reform check-in",
+      "org": "State Office of Energy Policy (sample)",
+      "people": [
+        "c2"
+      ],
+      "rk": "project",
+      "rid": "p2",
+      "related": "Grid Permitting Reform Coalition",
+      "prep": "Needs prep",
+      "prepTone": "wn",
+      "where": "Phone",
+      "gov": true
+    },
+    "m3": {
+      "time": "2:30 PM",
+      "start": 870,
+      "dur": "45 min",
+      "title": "Halcyon Robotics — Series B introduction",
+      "org": "Halcyon Robotics",
+      "people": [
+        "c3",
+        "c4",
+        "c13"
+      ],
+      "rk": "deal",
+      "rid": "d1",
+      "related": "Halcyon Robotics · Series B",
+      "prep": "Not started",
+      "prepTone": "n",
+      "where": "Microsoft Teams"
+    },
+    "m4": {
+      "time": "4:00 PM",
+      "start": 960,
+      "dur": "45 min",
+      "title": "Weekly BD & policy pipeline review",
+      "org": "RSM Capital · Internal",
+      "people": [
+        "c7",
+        "c8",
+        "c9"
+      ],
+      "rk": null,
+      "related": "",
+      "prep": "Agenda shared",
+      "prepTone": "ok",
+      "where": "Conference room"
+    },
+    "m5": {
+      "time": "11:30 AM",
+      "start": 690,
+      "dur": "60 min",
+      "title": "Partners' weekly meeting",
+      "org": "RSM Capital · Internal",
+      "people": [
+        "c9",
+        "c7",
+        "c13"
+      ],
+      "rk": null,
+      "related": "",
+      "prep": "Agenda shared",
+      "prepTone": "ok",
+      "where": "Board room"
+    },
+    "m6": {
+      "time": "1:00 PM",
+      "start": 780,
+      "dur": "30 min",
+      "title": "Keystone Infrastructure — co-investment catch-up",
+      "org": "Keystone Infrastructure Partners",
+      "people": [
+        "c6"
+      ],
+      "rk": "deal",
+      "rid": "d2",
+      "related": "Ridgeline Grid Storage · Growth",
+      "prep": "Brief ready",
+      "prepTone": "ok",
+      "where": "Phone"
+    },
+    "m7": {
+      "time": "10:00 AM",
+      "start": 600,
+      "dur": "45 min",
+      "title": "Corvid Analytics — customer reference call",
+      "org": "Corvid Analytics",
+      "people": [
+        "c10"
+      ],
+      "rk": "deal",
+      "rid": "d3",
+      "related": "Corvid Analytics · Series A",
+      "prep": "Needs prep",
+      "prepTone": "wn",
+      "where": "Microsoft Teams"
+    },
+    "m8": {
+      "time": "3:30 PM",
+      "start": 930,
+      "dur": "60 min",
+      "title": "IC pre-read review: Ridgeline Grid Storage",
+      "org": "RSM Capital · Internal",
+      "people": [
+        "c7",
+        "c14",
+        "c10"
+      ],
+      "rk": "deal",
+      "rid": "d2",
+      "related": "Ridgeline Grid Storage · Growth",
+      "prep": "Pre-read draft",
+      "prepTone": "wn",
+      "where": "Board room"
+    }
+  },
+  "MEET_BY": {
+    "ga": [
+      "m1",
+      "m2",
+      "m3",
+      "m4"
+    ],
+    "exec": [
+      "m1",
+      "m5",
+      "m6",
+      "m3"
+    ],
+    "vc": [
+      "m7",
+      "m3",
+      "m8"
+    ]
+  },
+  "PREP": {
+    "m1": {
+      "summary": "Ridgeline wants to move from term outline to LOI by Oct 30. The open question is the revised interconnection date, which could shift the schedule. Priya is waiting on RSM's revised outline, and Tom owes her permitting-coalition contacts.",
+      "history": [
+        {
+          "d": "Oct 9",
+          "t": "Call — Priya walked through the revised interconnection timeline",
+          "by": "Logged by Tom Becker"
+        },
+        {
+          "d": "Sep 18",
+          "t": "Site visit — Gulf Coast facility",
+          "by": "Logged by Tom Becker"
+        },
+        {
+          "d": "Aug 27",
+          "t": "Mutual NDA executed",
+          "by": "Legal"
+        }
+      ],
+      "docs": [
+        "doc1",
+        "doc7",
+        "doc8"
+      ],
+      "dev": [
+        "Regional grid operator reports a growing interconnection backlog (illustrative).",
+        "Ridgeline named a new COO in September (illustrative)."
+      ],
+      "topics": [
+        "Confirm the revised interconnection date and what it means for the Oct 30 LOI.",
+        "Clarify whether Ridgeline sees RSM's role as capital, strategic, or both.",
+        "Agree owners and dates for the LOI draft."
+      ],
+      "followups": [
+        {
+          "t": "Send revised partnership term outline",
+          "who": "@me",
+          "due": "Today",
+          "tone": "ac"
+        },
+        {
+          "t": "Share permitting-coalition contacts with Priya",
+          "who": "Tom Becker",
+          "due": "3 days overdue",
+          "tone": "ac"
+        }
+      ]
+    },
+    "m2": {
+      "summary": "Daniel's office is drafting amendments ahead of Thursday's committee markup. In September he asked for RSM's data on site-level permitting delays; bringing it today would strengthen the coalition's position.",
+      "history": [
+        {
+          "d": "Sep 30",
+          "t": "Meeting — permitting reform briefing",
+          "by": "Logged by you"
+        },
+        {
+          "d": "Sep 12",
+          "t": "Email — shared coalition principles",
+          "by": "Email capture"
+        },
+        {
+          "d": "Jul 22",
+          "t": "Event — energy policy roundtable",
+          "by": "Logged by you"
+        }
+      ],
+      "docs": [
+        "doc9",
+        "doc2"
+      ],
+      "dev": [
+        "Committee markup moved up to Thursday, Oct 22 (illustrative).",
+        "Two coalition members filed public comments this week (illustrative)."
+      ],
+      "topics": [
+        "Ask which provisions are still open before markup.",
+        "Offer RSM's site-level data on permitting delays.",
+        "Confirm the right staff contact for follow-up after Thursday."
+      ],
+      "followups": [
+        {
+          "t": "Send updated stakeholder memo",
+          "who": "@me",
+          "due": "Oct 21",
+          "tone": "wn"
+        }
+      ]
+    },
+    "m3": {
+      "summary": "First meeting with Halcyon Robotics. Dana Kim is raising a Series B with a term sheet expected Nov 14. Jordan Alvarez (Brightline Ventures) made the introduction and will join. The deck arrived Oct 14 through email capture.",
+      "history": [
+        {
+          "d": "Oct 14",
+          "t": "Series B deck received via email capture",
+          "by": "Matched automatically · confirmed by Marcus Chen"
+        },
+        {
+          "d": "Oct 12",
+          "t": "Email — Jordan Alvarez introduced Dana Kim",
+          "by": "Email capture"
+        }
+      ],
+      "docs": [
+        "doc3",
+        "doc10"
+      ],
+      "dev": [
+        "A competitor announced a Series C last week (illustrative).",
+        "Term sheet expected Nov 14, per the introduction email."
+      ],
+      "topics": [
+        "Use of proceeds and timeline to term sheet.",
+        "Unit economics of deployments to date.",
+        "Where RSM's energy and infrastructure network could help."
+      ],
+      "followups": [
+        {
+          "t": "Thank Jordan Alvarez for the introduction",
+          "who": "Marcus Chen",
+          "due": "Oct 20",
+          "tone": "tx"
+        },
+        {
+          "t": "Request data room access",
+          "who": "Marcus Chen",
+          "due": "Oct 20",
+          "tone": "tx"
+        }
+      ]
+    }
+  },
+  "ATT": [
+    {
+      "id": "a1",
+      "pids": [
+        "ga"
+      ],
+      "p": "high",
+      "type": "Follow-up",
+      "typeIcon": "icon:mail",
+      "title": "Send revised partnership term outline to Priya Raman",
+      "related": "Ridgeline Grid Storage",
+      "rk": "contact",
+      "rid": "c1",
+      "due": "Today",
+      "dueTone": "ac",
+      "act": "draft",
+      "actLabel": "Draft with AI",
+      "source": "Surfaced from Oct 9 call notes"
+    },
+    {
+      "id": "a2",
+      "pids": [
+        "ga",
+        "exec"
+      ],
+      "p": "high",
+      "type": "Government affairs",
+      "typeIcon": "icon:capitol",
+      "title": "Update stakeholder memo — committee markup moved to Thursday",
+      "related": "Grid Permitting Reform Coalition",
+      "rk": "project",
+      "rid": "p2",
+      "due": "Tomorrow",
+      "dueTone": "wn",
+      "act": "open",
+      "actLabel": "Open project",
+      "source": "Change detected in legislative tracking"
+    },
+    {
+      "id": "a3",
+      "pids": [
+        "ga"
+      ],
+      "p": "med",
+      "type": "Relationship",
+      "typeIcon": "icon:people",
+      "title": "Send the permitting comments promised to Elena Sorensen",
+      "related": "Elena Sorensen",
+      "rk": "contact",
+      "rid": "c5",
+      "due": "4 days overdue",
+      "dueTone": "ac",
+      "act": "draft",
+      "actLabel": "Draft with AI",
+      "source": "Commitment recorded Sep 24"
+    },
+    {
+      "id": "a4",
+      "pids": [
+        "ga",
+        "vc",
+        "exec"
+      ],
+      "p": "med",
+      "type": "Meeting prep",
+      "typeIcon": "icon:calendar",
+      "title": "Prepare for the Halcyon Robotics Series B introduction",
+      "related": "Halcyon Robotics",
+      "rk": "deal",
+      "rid": "d1",
+      "due": "Today · 2:30 PM",
+      "dueTone": "tx",
+      "act": "prep",
+      "mid": "m3",
+      "actLabel": "Prepare",
+      "source": ""
+    },
+    {
+      "id": "a5",
+      "pids": [
+        "ga"
+      ],
+      "p": "low",
+      "type": "Request",
+      "typeIcon": "icon:chat",
+      "title": "Comment on the Lone Star site-selection memo for Tom Becker",
+      "related": "Lone Star Microgrid Site Selection",
+      "rk": "project",
+      "rid": "p3",
+      "due": "Oct 21",
+      "dueTone": "tx",
+      "act": "open",
+      "actLabel": "Open request",
+      "source": ""
+    },
+    {
+      "id": "a6",
+      "pids": [
+        "vc"
+      ],
+      "p": "high",
+      "type": "Diligence",
+      "typeIcon": "icon:diligence",
+      "title": "Review customer reference summaries (4 of 6 complete)",
+      "related": "Corvid Analytics",
+      "rk": "deal",
+      "rid": "d3",
+      "due": "Today",
+      "dueTone": "ac",
+      "act": "open",
+      "actLabel": "Review",
+      "source": ""
+    },
+    {
+      "id": "a7",
+      "pids": [
+        "vc",
+        "exec"
+      ],
+      "p": "med",
+      "type": "Document",
+      "typeIcon": "icon:doc",
+      "title": "Review the newly uploaded seed investment memo",
+      "related": "Tessellate Energy",
+      "rk": "doc",
+      "rid": "doc4",
+      "due": "Oct 23",
+      "dueTone": "tx",
+      "act": "summarize",
+      "actLabel": "Summarize with AI",
+      "source": "Uploaded Oct 17 by Hannah Brooks"
+    },
+    {
+      "id": "a8",
+      "pids": [
+        "vc"
+      ],
+      "p": "med",
+      "type": "Negotiation",
+      "typeIcon": "icon:edit",
+      "title": "Respond to term sheet redlines",
+      "related": "Meridian Water Systems",
+      "rk": "deal",
+      "rid": "d5",
+      "due": "Tomorrow",
+      "dueTone": "wn",
+      "act": "open",
+      "actLabel": "Open deal",
+      "source": ""
+    },
+    {
+      "id": "a9",
+      "pids": [
+        "exec"
+      ],
+      "p": "high",
+      "type": "Approval",
+      "typeIcon": "icon:diligence",
+      "title": "Approve IC date and pre-read distribution",
+      "related": "Ridgeline Grid Storage",
+      "rk": "deal",
+      "rid": "d2",
+      "due": "Today",
+      "dueTone": "ac",
+      "act": "approve",
+      "apId": "ap1",
+      "actLabel": "Approve",
+      "source": "Requested by Tom Becker"
+    },
+    {
+      "id": "a10",
+      "pids": [
+        "vc",
+        "exec"
+      ],
+      "p": "low",
+      "type": "Follow-up",
+      "typeIcon": "icon:mail",
+      "title": "Thank Jordan Alvarez for the Halcyon introduction",
+      "related": "Jordan Alvarez",
+      "rk": "contact",
+      "rid": "c4",
+      "due": "Oct 20",
+      "dueTone": "tx",
+      "act": "draft",
+      "actLabel": "Draft with AI",
+      "source": "Suggested after the intro email"
+    }
+  ],
+  "APPROVALS": [
+    {
+      "id": "ap1",
+      "title": "Ridgeline Growth — IC date and pre-read distribution",
+      "by": "Tom Becker",
+      "due": "Today",
+      "dueTone": "ac",
+      "rk": "deal",
+      "rid": "d2"
+    },
+    {
+      "id": "ap2",
+      "title": "Annual LP Meeting — venue contract",
+      "by": "Sofia Marquez",
+      "due": "Oct 21",
+      "dueTone": "wn",
+      "rk": "project",
+      "rid": "p6"
+    },
+    {
+      "id": "ap3",
+      "title": "Q3 portfolio letter — final draft",
+      "by": "Hannah Brooks",
+      "due": "Oct 23",
+      "dueTone": "tx",
+      "rk": "doc",
+      "rid": "doc6"
+    }
+  ],
+  "GOV": [
+    {
+      "id": "g1",
+      "title": "Grid Permitting Reform Act (illustrative)",
+      "juris": "Federal · Senate committee",
+      "position": "Support with amendments",
+      "cur": 2,
+      "change": "Markup moved up 7 days",
+      "chipCls": "chip-ac",
+      "next": "Committee markup · Thu, Oct 22",
+      "rk": "project",
+      "rid": "p2"
+    },
+    {
+      "id": "g2",
+      "title": "Microgrid tariff proceeding (illustrative)",
+      "juris": "State utility commission",
+      "position": "Monitoring",
+      "cur": 1,
+      "change": "Comment period open",
+      "chipCls": "chip-wn",
+      "next": "Comments close · Nov 13",
+      "rk": "project",
+      "rid": "p3"
+    },
+    {
+      "id": "g3",
+      "title": "Clean hydrogen credit guidance (illustrative)",
+      "juris": "Federal agency guidance",
+      "position": "Monitoring",
+      "cur": 1,
+      "change": "No change this week",
+      "chipCls": "",
+      "next": "Guidance expected · Q4",
+      "rk": null
+    }
+  ],
+  "INTEL": [
+    {
+      "id": "i1",
+      "pids": [
+        "ga",
+        "exec"
+      ],
+      "headline": "Committee schedules markup on transmission permitting bill",
+      "source": "LegiStorm (sample)",
+      "date": "Oct 19",
+      "topic": "Grid Permitting Reform",
+      "why": "Your stakeholder memo is now due a week earlier — before Thursday.",
+      "rk": "project",
+      "rid": "p2"
+    },
+    {
+      "id": "i2",
+      "pids": [
+        "ga",
+        "exec",
+        "vc"
+      ],
+      "headline": "Interconnection queue backlog grows across the region",
+      "source": "Industry research (sample)",
+      "date": "Oct 18",
+      "topic": "Ridgeline Grid Storage",
+      "why": "May shift the LOI timeline you'll discuss at 9:30.",
+      "rk": "deal",
+      "rid": "d2"
+    },
+    {
+      "id": "i3",
+      "pids": [
+        "vc",
+        "ga"
+      ],
+      "headline": "Robotics competitor announces a Series C round",
+      "source": "Harmonic (sample)",
+      "date": "Oct 17",
+      "topic": "Halcyon Robotics",
+      "why": "Useful context for valuation questions in today's 2:30 intro.",
+      "rk": "deal",
+      "rid": "d1"
+    },
+    {
+      "id": "i4",
+      "pids": [
+        "ga"
+      ],
+      "headline": "Utility commission opens comment period on microgrid tariffs",
+      "source": "State regulator (sample)",
+      "date": "Oct 16",
+      "topic": "Lone Star Microgrid",
+      "why": "Comments close Nov 13 and affect site economics on your shortlist.",
+      "rk": "project",
+      "rid": "p3"
+    },
+    {
+      "id": "i5",
+      "pids": [
+        "vc",
+        "exec"
+      ],
+      "headline": "Municipal water infrastructure funding round-up",
+      "source": "AlphaSense (sample)",
+      "date": "Oct 15",
+      "topic": "Meridian Water Systems",
+      "why": "Supports the demand case in the Meridian investment memo.",
+      "rk": "deal",
+      "rid": "d5"
+    },
+    {
+      "id": "i6",
+      "pids": [
+        "exec",
+        "vc"
+      ],
+      "headline": "Family offices increase direct infrastructure allocations",
+      "source": "Research (sample)",
+      "date": "Oct 14",
+      "topic": "Firm strategy",
+      "why": "Relevant to positioning in the Q3 letter and the LP meeting agenda.",
+      "rk": "doc",
+      "rid": "doc6"
+    }
+  ],
+  "PORTFOLIO": [
+    {
+      "name": "Northline Batteries",
+      "sector": "Energy storage",
+      "update": "Q3 revenue update posted",
+      "status": "On plan",
+      "tone": "ok",
+      "owner": "Marcus Chen"
+    },
+    {
+      "name": "Kestrel Bio",
+      "sector": "Life sciences",
+      "update": "Board meeting Oct 27; pre-read pending",
+      "status": "Watch",
+      "tone": "wn",
+      "owner": "Eleanor Vance"
+    },
+    {
+      "name": "Parcel Labs",
+      "sector": "Logistics software",
+      "update": "Exploring bridge financing",
+      "status": "At risk",
+      "tone": "ac",
+      "owner": "Marcus Chen"
+    },
+    {
+      "name": "Orchard Health",
+      "sector": "Digital health",
+      "update": "Hired a new CFO",
+      "status": "On plan",
+      "tone": "ok",
+      "owner": "Hannah Brooks"
+    },
+    {
+      "name": "Ferro Systems",
+      "sector": "Industrial IoT",
+      "update": "Pilot expansion with two utilities",
+      "status": "On plan",
+      "tone": "ok",
+      "owner": "Hannah Brooks"
+    }
+  ],
+  "RECS": {
+    "ga": [
+      {
+        "id": "r1",
+        "text": "Bundle your two Ridgeline follow-ups into one note before 9:30.",
+        "basis": "Oct 9 call notes · 2 open follow-ups",
+        "actLabel": "Draft note",
+        "kind": "draft",
+        "ref": "a1"
+      },
+      {
+        "id": "r2",
+        "text": "Elena Sorensen has been waiting 25 days for the comments you promised.",
+        "basis": "Commitment recorded Sep 24",
+        "actLabel": "Draft note",
+        "kind": "draft",
+        "ref": "a3"
+      },
+      {
+        "id": "r3",
+        "text": "Thursday's markup overlaps the Lone Star site review. Consider moving the review to Wednesday.",
+        "basis": "Your calendar · Grid Permitting Reform",
+        "actLabel": "Propose new time",
+        "kind": "propose"
+      }
+    ],
+    "exec": [
+      {
+        "id": "r4",
+        "text": "The Ridgeline IC on Oct 28 has no pre-read owner assigned.",
+        "basis": "IC calendar · deal team roster",
+        "actLabel": "Assign owner",
+        "kind": "tasks",
+        "tasks": [
+          {
+            "title": "Assign Ridgeline IC pre-read owner",
+            "related": "Ridgeline Grid Storage",
+            "due": "Oct 21"
+          }
+        ]
+      },
+      {
+        "id": "r5",
+        "text": "Raymond Hsu has not heard from RSM in 50 days, ahead of the Ridgeline IC.",
+        "basis": "Relationship history · Keystone",
+        "actLabel": "Draft note",
+        "kind": "draft",
+        "ref": "c6"
+      },
+      {
+        "id": "r6",
+        "text": "Kestrel Bio's board pre-read is still pending for Oct 27.",
+        "basis": "Portfolio calendar",
+        "actLabel": "Create reminder",
+        "kind": "tasks",
+        "tasks": [
+          {
+            "title": "Request Kestrel Bio board pre-read",
+            "related": "Kestrel Bio",
+            "due": "Oct 22"
+          }
+        ]
+      }
+    ],
+    "vc": [
+      {
+        "id": "r7",
+        "text": "Corvid diligence is two customer reference calls behind plan.",
+        "basis": "Diligence checklist · Corvid Analytics",
+        "actLabel": "Create tasks",
+        "kind": "tasks",
+        "tasks": [
+          {
+            "title": "Schedule Corvid reference call #5",
+            "related": "Corvid Analytics",
+            "due": "Oct 21"
+          },
+          {
+            "title": "Schedule Corvid reference call #6",
+            "related": "Corvid Analytics",
+            "due": "Oct 22"
+          }
+        ]
+      },
+      {
+        "id": "r8",
+        "text": "The Tessellate memo cites a market size that differs from the linked research report (illustrative).",
+        "basis": "Tessellate memo · AlphaSense (sample)",
+        "actLabel": "Compare sources",
+        "kind": "ask",
+        "q": "Compare the Tessellate memo market size with the linked research"
+      },
+      {
+        "id": "r9",
+        "text": "A thank-you to Jordan Alvarez after today's intro keeps the channel warm.",
+        "basis": "Email capture · Oct 12",
+        "actLabel": "Draft note",
+        "kind": "draft",
+        "ref": "a10"
+      }
+    ]
+  },
+  "TEAM": [
+    {
+      "who": "Tom Becker",
+      "tone": 3,
+      "what": "logged a call with Priya Raman on Gulf Coast Storage Partnership",
+      "when": "2h ago"
+    },
+    {
+      "who": "Aisha Patel",
+      "tone": 2,
+      "what": "uploaded the Lone Star site-selection memo",
+      "when": "Yesterday"
+    },
+    {
+      "who": "Hannah Brooks",
+      "tone": 5,
+      "what": "moved Corvid Analytics to Due Diligence",
+      "when": "Fri"
+    },
+    {
+      "who": "Sofia Marquez",
+      "tone": 4,
+      "what": "shared the RedSky Phase 1 rollout update",
+      "when": "Fri"
+    },
+    {
+      "who": "Marcus Chen",
+      "tone": 4,
+      "what": "added Halcyon Robotics to the pipeline",
+      "when": "Oct 12"
+    },
+    {
+      "who": "Eleanor Vance",
+      "tone": 0,
+      "what": "approved the Q4 research budget",
+      "when": "Oct 9"
+    }
+  ],
+  "NOTIFS": [
+    {
+      "id": "n1",
+      "icon": "icon:chat",
+      "text": "Tom Becker mentioned you in Gulf Coast Storage Partnership",
+      "time": "12 min ago",
+      "go": {
+        "kind": "project",
+        "id": "p1"
+      }
+    },
+    {
+      "id": "n2",
+      "icon": "icon:capitol",
+      "text": "Committee markup moved to Thu, Oct 22 (illustrative)",
+      "time": "1 hr ago",
+      "go": {
+        "kind": "project",
+        "id": "p2"
+      }
+    },
+    {
+      "id": "n3",
+      "icon": "icon:ai",
+      "text": "RedSky AI prepared your brief for Ridgeline × RSM",
+      "time": "7:02 AM",
+      "ai": true,
+      "go": {
+        "prep": "m1"
+      }
+    },
+    {
+      "id": "n4",
+      "icon": "icon:doc",
+      "text": "Hannah Brooks shared \"Q3 portfolio letter (final draft)\"",
+      "time": "Yesterday",
+      "go": {
+        "kind": "doc",
+        "id": "doc6"
+      }
+    }
+  ],
+  "NAV": [
+    {
+      "id": "workspace",
+      "label": "Workspace",
+      "items": [
+        {
+          "id": "home",
+          "label": "Home",
+          "icon": "icon:home"
+        },
+        {
+          "id": "inbox",
+          "label": "Inbox",
+          "icon": "icon:inbox",
+          "badge": "3"
+        },
+        {
+          "id": "tasks",
+          "label": "My Tasks",
+          "icon": "icon:tasks",
+          "badge": "@tasks"
+        },
+        {
+          "id": "calendar",
+          "label": "Calendar",
+          "icon": "icon:calendar"
+        },
+        {
+          "id": "meetings",
+          "label": "Meetings",
+          "icon": "icon:meetings"
+        }
+      ]
+    },
+    {
+      "id": "relationships",
+      "label": "Relationships",
+      "items": [
+        {
+          "id": "people",
+          "label": "People",
+          "icon": "icon:people"
+        },
+        {
+          "id": "companies",
+          "label": "Companies",
+          "icon": "icon:company"
+        },
+        {
+          "id": "orgs",
+          "label": "Organizations",
+          "icon": "icon:org"
+        },
+        {
+          "id": "relintel",
+          "label": "Relationship Intelligence",
+          "icon": "icon:graph"
+        }
+      ]
+    },
+    {
+      "id": "investments",
+      "label": "Investments",
+      "items": [
+        {
+          "id": "pipeline",
+          "label": "Deal Pipeline",
+          "icon": "icon:pipeline",
+          "roles": [
+            "vc",
+            "exec",
+            "finance",
+            "research",
+            "bd"
+          ]
+        },
+        {
+          "id": "portfolio",
+          "label": "Portfolio",
+          "icon": "icon:portfolio",
+          "roles": [
+            "vc",
+            "exec",
+            "finance",
+            "research"
+          ]
+        },
+        {
+          "id": "diligence",
+          "label": "Diligence",
+          "icon": "icon:diligence",
+          "roles": [
+            "vc",
+            "legal",
+            "finance"
+          ]
+        },
+        {
+          "id": "invresearch",
+          "label": "Investment Research",
+          "icon": "icon:flask",
+          "roles": [
+            "vc",
+            "research",
+            "exec"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "label": "Operations",
+      "items": [
+        {
+          "id": "projects",
+          "label": "Projects",
+          "icon": "icon:folder"
+        },
+        {
+          "id": "energy",
+          "label": "Energy & Infrastructure",
+          "icon": "icon:bolt",
+          "roles": [
+            "energy",
+            "exec"
+          ]
+        },
+        {
+          "id": "gov",
+          "label": "Government Affairs",
+          "icon": "icon:capitol",
+          "roles": [
+            "ga",
+            "legal",
+            "exec"
+          ]
+        },
+        {
+          "id": "bd",
+          "label": "Business Development",
+          "icon": "icon:compass",
+          "roles": [
+            "bd",
+            "exec"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge & Intelligence",
+      "items": [
+        {
+          "id": "documents",
+          "label": "Documents",
+          "icon": "icon:doc"
+        },
+        {
+          "id": "research",
+          "label": "Research",
+          "icon": "icon:book"
+        },
+        {
+          "id": "intelligence",
+          "label": "Intelligence",
+          "icon": "icon:globe"
+        },
+        {
+          "id": "ai",
+          "label": "RedSky AI",
+          "icon": "icon:ai"
+        }
+      ]
+    }
+  ],
+  "NAV_BOTTOM": [
+    {
+      "id": "integrations",
+      "label": "Integrations",
+      "icon": "icon:plug"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "icon": "icon:sliders"
+    },
+    {
+      "id": "help",
+      "label": "Help",
+      "icon": "icon:help"
+    }
+  ],
+  "PHASES": [
+    {
+      "n": "P1",
+      "name": "Foundation",
+      "outcome": "Connected CRM",
+      "months": "Months 0–2"
+    },
+    {
+      "n": "P2",
+      "name": "Intelligence",
+      "outcome": "Institutional intelligence",
+      "months": "Months 2–4"
+    },
+    {
+      "n": "P3",
+      "name": "Operations",
+      "outcome": "Investment & operations",
+      "months": "Months 4–7"
+    },
+    {
+      "n": "P4",
+      "name": "Integration",
+      "outcome": "Family office integration",
+      "months": "Months 7–10"
+    },
+    {
+      "n": "P5",
+      "name": "Autonomous OS",
+      "outcome": "Independent RedSky OS",
+      "months": "Months 10–18+"
+    }
+  ],
+  "MODS": {
+    "inbox": {
+      "group": "Workspace",
+      "phase": 1,
+      "desc": "Email capture, mentions and requests routed to you. Forwarded email becomes structured relationship activity — after human review.",
+      "caps": [
+        "Forward to redsky@rsmcapital.com",
+        "AI extraction of people, companies and dates",
+        "Review queue for unmatched records",
+        "Mentions and approvals in one stream"
+      ]
+    },
+    "calendar": {
+      "group": "Workspace",
+      "phase": 1,
+      "desc": "Your Outlook calendar, enriched with the people, companies and deals behind each event.",
+      "caps": [
+        "Two-way Outlook sync",
+        "Attendee profiles on every event",
+        "Prep status and briefs",
+        "Interaction logging after meetings"
+      ]
+    },
+    "meetings": {
+      "group": "Workspace",
+      "phase": 2,
+      "desc": "Meeting notes, preparation briefs and follow-ups connected to relationships and deals.",
+      "caps": [
+        "AI preparation briefs",
+        "Notes linked to records",
+        "Follow-up extraction with approval",
+        "Disclosure prompts for public officials"
+      ]
+    },
+    "companies": {
+      "group": "Relationships",
+      "phase": 1,
+      "desc": "Company records unified across CRM, email, documents and research.",
+      "caps": [
+        "Deduplicated company profiles",
+        "Linked people, deals and documents",
+        "Research from connected providers",
+        "Ownership and access controls"
+      ]
+    },
+    "orgs": {
+      "group": "Relationships",
+      "phase": 1,
+      "desc": "Government bodies, associations, universities and other organizations RSM works with.",
+      "caps": [
+        "Agency and committee records",
+        "Staff and official contacts",
+        "Membership and coalition tracking",
+        "Interaction history"
+      ]
+    },
+    "relintel": {
+      "group": "Relationships",
+      "phase": 2,
+      "desc": "The relationship graph: who at RSM knows whom, and the strongest path to a decision-maker.",
+      "caps": [
+        "Warm-path discovery",
+        "Relationship strength signals",
+        "Introductions and referrals",
+        "Coverage gaps by organization"
+      ]
+    },
+    "portfolio": {
+      "group": "Investments",
+      "phase": 3,
+      "desc": "Portfolio monitoring with updates, KPIs and board materials in one place.",
+      "caps": [
+        "Company updates and board materials",
+        "KPI tracking",
+        "Cap tables via Carta (planned)",
+        "Risk and watchlist flags"
+      ]
+    },
+    "diligence": {
+      "group": "Investments",
+      "phase": 3,
+      "desc": "Structured diligence workflows with checklists, data rooms and findings.",
+      "caps": [
+        "Diligence checklists",
+        "Reference-call tracking",
+        "Document review with AI summaries",
+        "IC memo assembly"
+      ]
+    },
+    "invresearch": {
+      "group": "Investments",
+      "phase": 2,
+      "desc": "Investment research across internal memos and connected providers.",
+      "caps": [
+        "Thesis libraries",
+        "AlphaSense and Harmonic (planned)",
+        "Comparable companies",
+        "Research briefs"
+      ]
+    },
+    "projects": {
+      "group": "Operations",
+      "phase": 3,
+      "desc": "Internal initiatives and external projects, with milestones, owners and approvals.",
+      "caps": [
+        "Project plans and milestones",
+        "Tasks and approvals",
+        "Status reporting for leadership",
+        "Links to deals, people and documents"
+      ]
+    },
+    "energy": {
+      "group": "Operations",
+      "phase": 3,
+      "desc": "Energy and infrastructure project development — sites, permits, partners and capital.",
+      "caps": [
+        "Site and permit tracking",
+        "Partner and offtaker records",
+        "Regulatory proceedings",
+        "Capital stack and milestones"
+      ]
+    },
+    "gov": {
+      "group": "Operations",
+      "phase": 3,
+      "desc": "Government affairs: legislation, proceedings, officials and coalition work.",
+      "caps": [
+        "Bill and proceeding tracking",
+        "Official-interaction logging",
+        "Coalition and stakeholder maps",
+        "LegiStorm integration (planned)"
+      ]
+    },
+    "bd": {
+      "group": "Operations",
+      "phase": 3,
+      "desc": "Business development: partnerships, introductions and strategic opportunities.",
+      "caps": [
+        "Partnership pipeline",
+        "Introduction tracking",
+        "Partner mapping",
+        "Follow-up automation with approval"
+      ]
+    },
+    "documents": {
+      "group": "Knowledge & Intelligence",
+      "phase": 2,
+      "desc": "Documents from SharePoint and email, searchable and linked to the work they support.",
+      "caps": [
+        "SharePoint and OneDrive search",
+        "Semantic retrieval",
+        "Linked to records",
+        "Permission-aware results"
+      ]
+    },
+    "research": {
+      "group": "Knowledge & Intelligence",
+      "phase": 2,
+      "desc": "RSM's institutional knowledge — memos, notes and research — in one searchable library.",
+      "caps": [
+        "Institutional knowledge base",
+        "Ask questions across sources",
+        "Cited answers",
+        "Research briefs"
+      ]
+    },
+    "intelligence": {
+      "group": "Knowledge & Intelligence",
+      "phase": 2,
+      "desc": "A unified intelligence feed across markets, portfolio companies, energy and policy.",
+      "caps": [
+        "Company and people alerts",
+        "Policy and regulatory updates",
+        "Why-it-matters summaries",
+        "Saved and shared items"
+      ]
+    },
+    "help": {
+      "group": "Support",
+      "phase": 0,
+      "desc": "Guides, keyboard shortcuts and a direct line to the RedSky team.",
+      "caps": [
+        "⌘K — search and commands",
+        "⌘J — Ask RedSky",
+        "Esc — close panels",
+        "Send feedback to the RedSky team"
+      ]
+    }
+  },
+  "SUGGEST": [
+    {
+      "q": "Prepare me for my next meeting.",
+      "key": "next",
+      "icon": "icon:calendar"
+    },
+    {
+      "q": "What happened across my projects this week?",
+      "key": "projects",
+      "icon": "icon:folder"
+    },
+    {
+      "q": "Summarize my outstanding follow-ups.",
+      "key": "followups",
+      "icon": "icon:tasks"
+    },
+    {
+      "q": "What changed in our investment pipeline?",
+      "key": "pipeline",
+      "icon": "icon:pipeline"
+    },
+    {
+      "q": "Find everything we know about Halcyon Robotics.",
+      "key": "company",
+      "icon": "icon:company"
+    },
+    {
+      "q": "What decisions are waiting on me?",
+      "key": "decisions",
+      "icon": "icon:diligence"
+    }
+  ],
+  "CREATE": {
+    "task": {
+      "title": "Create task",
+      "icon": "icon:tasks",
+      "fieldLabel": "Task",
+      "placeholder": "What needs to happen?",
+      "relLabel": "Related to",
+      "extraLabel": "Due",
+      "extraOpts": [
+        "Today",
+        "Tomorrow",
+        "This week",
+        "Next week"
+      ],
+      "note": "Tasks you create are assigned to you and appear in My Tasks.",
+      "saveLabel": "Create task"
+    },
+    "contact": {
+      "title": "Add contact",
+      "icon": "icon:user",
+      "fieldLabel": "Full name",
+      "placeholder": "e.g. Jordan Alvarez",
+      "relLabel": "Organization",
+      "extraLabel": "Relationship owner",
+      "extraOpts": [
+        "Me",
+        "Tom Becker",
+        "Marcus Chen",
+        "Eleanor Vance"
+      ],
+      "note": "RedSky checks for duplicates and routes new contacts for review before they are added.",
+      "saveLabel": "Submit for review"
+    },
+    "meeting": {
+      "title": "Log meeting",
+      "icon": "icon:calendar",
+      "fieldLabel": "Meeting",
+      "placeholder": "e.g. Coffee with Elena Sorensen",
+      "relLabel": "Related to",
+      "extraLabel": "When",
+      "extraOpts": [
+        "Today",
+        "Yesterday",
+        "Earlier this week"
+      ],
+      "note": "If a public official attended, this log supports disclosure review.",
+      "saveLabel": "Log meeting"
+    },
+    "opportunity": {
+      "title": "Add opportunity",
+      "icon": "icon:pipeline",
+      "fieldLabel": "Company",
+      "placeholder": "Company name",
+      "relLabel": "Source / introduced via",
+      "extraLabel": "Stage",
+      "extraOpts": [
+        "Sourcing",
+        "Initial Review",
+        "Due Diligence"
+      ],
+      "note": "New opportunities start in Sourcing unless a stage is chosen. Sample only.",
+      "saveLabel": "Add opportunity"
+    },
+    "document": {
+      "title": "Upload document",
+      "icon": "icon:upload",
+      "fieldLabel": "Document name",
+      "placeholder": "e.g. Site visit notes",
+      "relLabel": "Link to",
+      "extraLabel": "Visibility",
+      "extraOpts": [
+        "Only me",
+        "Deal or project team",
+        "All RSM staff"
+      ],
+      "note": "Uploads in this prototype are simulated — files stay on your device.",
+      "saveLabel": "Upload"
+    },
+    "research": {
+      "title": "Start research",
+      "icon": "icon:flask",
+      "fieldLabel": "Company, person or topic",
+      "placeholder": "e.g. Halcyon Robotics",
+      "relLabel": "Related to",
+      "extraLabel": "Depth",
+      "extraOpts": [
+        "Quick scan",
+        "Standard brief",
+        "Deep dive"
+      ],
+      "note": "RedSky AI compiles internal records first, then approved external sources.",
+      "saveLabel": "Start research"
+    }
+  },
+  "WS_EXTRACT": [
+    {
+      "label": "DISC behavioral characteristics",
+      "icon": "icon:activity"
+    },
+    {
+      "label": "Natural and adapted behavioral styles",
+      "icon": "icon:refresh"
+    },
+    {
+      "label": "12 Driving Forces",
+      "icon": "icon:compass"
+    },
+    {
+      "label": "Communication preferences",
+      "icon": "icon:chat"
+    },
+    {
+      "label": "Decision-making preferences",
+      "icon": "icon:target"
+    },
+    {
+      "label": "Motivational characteristics",
+      "icon": "icon:flag"
+    },
+    {
+      "label": "Preferred working environment",
+      "icon": "icon:home"
+    }
+  ],
+  "WS_PROMISES": [
+    "Private to you by default — not visible to managers or colleagues",
+    "Shared only with your explicit, revocable consent",
+    "Never used for ranking, performance evaluation, hiring or employment decisions",
+    "Suggestions only — you control every setting",
+    "Remove your assessment data at any time"
+  ],
+  "WS_PROFILE": {
+    "disc": [
+      {
+        "k": "D",
+        "name": "Dominance",
+        "nat": 72,
+        "adp": 68
+      },
+      {
+        "k": "I",
+        "name": "Influence",
+        "nat": 64,
+        "adp": 70
+      },
+      {
+        "k": "S",
+        "name": "Steadiness",
+        "nat": 38,
+        "adp": 42
+      },
+      {
+        "k": "C",
+        "name": "Compliance",
+        "nat": 45,
+        "adp": 52
+      }
+    ],
+    "styleNote": "Natural style leans direct and persuasive; the adapted style shows slightly more structure and people focus at work.",
+    "forces": [
+      {
+        "m": "Knowledge",
+        "a": "Instinctive",
+        "b": "Intellectual",
+        "pos": 55
+      },
+      {
+        "m": "Utility",
+        "a": "Selfless",
+        "b": "Resourceful",
+        "pos": 78
+      },
+      {
+        "m": "Surroundings",
+        "a": "Objective",
+        "b": "Harmonious",
+        "pos": 42
+      },
+      {
+        "m": "Others",
+        "a": "Altruistic",
+        "b": "Intentional",
+        "pos": 70
+      },
+      {
+        "m": "Power",
+        "a": "Collaborative",
+        "b": "Commanding",
+        "pos": 82
+      },
+      {
+        "m": "Methodologies",
+        "a": "Structured",
+        "b": "Receptive",
+        "pos": 72
+      }
+    ],
+    "primary": [
+      "Commanding",
+      "Resourceful",
+      "Receptive",
+      "Intentional"
+    ],
+    "prefs": [
+      {
+        "k": "Communication",
+        "v": "Brief and direct — bottom line first, detail on request.",
+        "icon": "icon:chat"
+      },
+      {
+        "k": "Decision-making",
+        "v": "Moves quickly once the key facts and trade-offs are clear.",
+        "icon": "icon:target"
+      },
+      {
+        "k": "Motivation",
+        "v": "Influence, visible results and a good return on time invested.",
+        "icon": "icon:flag"
+      },
+      {
+        "k": "Environment",
+        "v": "Fast-paced and varied, with room to persuade and freedom from routine detail.",
+        "icon": "icon:home"
+      }
+    ]
+  },
+  "WS_RECS": [
+    {
+      "id": "layout",
+      "area": "Dashboard layout",
+      "icon": "icon:layout",
+      "insight": "High Dominance (D 72): tends to focus on results and action.",
+      "why": "Puts what needs a decision where you look first; context stays one scroll away instead of in the way.",
+      "def": "action",
+      "opts": [
+        {
+          "v": "action",
+          "label": "Action first",
+          "desc": "Lead with Needs Your Attention and decisions; move background reading lower."
+        },
+        {
+          "v": "people",
+          "label": "People first",
+          "desc": "Lead with relationships and meetings; tasks follow."
+        },
+        {
+          "v": "keep",
+          "label": "Keep my order",
+          "desc": "Keep your current widget order."
+        }
+      ]
+    },
+    {
+      "id": "prep",
+      "area": "Meeting preparation",
+      "icon": "icon:calendar",
+      "insight": "High Influence (I 64) with a Commanding driver: tends to be relationship- and outcome-oriented.",
+      "why": "Keeps preparation short and centered on the conversation and the ask, rather than a long dossier.",
+      "def": "onepage-15",
+      "opts": [
+        {
+          "v": "onepage-15",
+          "label": "One page · 15 min",
+          "desc": "One-page briefs that open with the people, your history and the ask — with a reminder 15 minutes before."
+        },
+        {
+          "v": "onepage-30",
+          "label": "One page · 30 min",
+          "desc": "One-page, people-first briefs — with a reminder 30 minutes before."
+        },
+        {
+          "v": "detailed-30",
+          "label": "Detailed · 30 min",
+          "desc": "Full briefs including developments and history — reminder 30 minutes before."
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "area": "Task organization",
+      "icon": "icon:tasks",
+      "insight": "Receptive driving force (72): comfortable adapting methods to the situation.",
+      "why": "A short, flexible focus list may suit you better than a long fixed schedule.",
+      "def": "top3",
+      "opts": [
+        {
+          "v": "top3",
+          "label": "Priority · Top 3",
+          "desc": "Group tasks by priority with a daily Top 3 focus, instead of one long chronological list."
+        },
+        {
+          "v": "due",
+          "label": "Due date",
+          "desc": "Sort tasks strictly by due date."
+        },
+        {
+          "v": "relationship",
+          "label": "Relationship",
+          "desc": "Group tasks by the person or organization involved."
+        }
+      ]
+    },
+    {
+      "id": "comm",
+      "area": "Communication",
+      "icon": "icon:chat",
+      "insight": "Communication preference: brief and direct, bottom line first.",
+      "why": "Fewer interruptions and messages that get to the point — urgent items still come through immediately.",
+      "def": "batched",
+      "opts": [
+        {
+          "v": "batched",
+          "label": "Direct · batched",
+          "desc": "AI drafts open with the ask; non-urgent notifications arrive together at 9 AM and 3 PM."
+        },
+        {
+          "v": "realtime",
+          "label": "Direct · real-time",
+          "desc": "AI drafts open with the ask; notifications arrive as they happen."
+        },
+        {
+          "v": "warm",
+          "label": "Warm · batched",
+          "desc": "AI drafts open with context first; non-urgent notifications are batched."
+        }
+      ]
+    },
+    {
+      "id": "ai",
+      "area": "AI response format",
+      "icon": "icon:ai",
+      "insight": "Decision-making: tends to decide quickly once the key facts are clear.",
+      "why": "Leads with the recommendation so you can act — or open the reasoning when you want it.",
+      "def": "executive",
+      "opts": [
+        {
+          "v": "executive",
+          "label": "Executive",
+          "desc": "Set RedSky AI to Executive — bottom line first, with reasoning one click away."
+        },
+        {
+          "v": "concise",
+          "label": "Concise",
+          "desc": "Set RedSky AI to Concise — short, actionable answers."
+        },
+        {
+          "v": "analytical",
+          "label": "Analytical",
+          "desc": "Set RedSky AI to Analytical — detailed reasoning and sources."
+        }
+      ]
+    },
+    {
+      "id": "density",
+      "area": "Information density",
+      "icon": "icon:grid",
+      "insight": "Preferred environment: fast-paced, with freedom from routine detail.",
+      "why": "Less to scan each morning; everything else is still one click away.",
+      "def": "focused",
+      "opts": [
+        {
+          "v": "focused",
+          "label": "Focused",
+          "desc": "Use a Focused home page — four widgets, three items each."
+        },
+        {
+          "v": "balanced",
+          "label": "Balanced",
+          "desc": "Keep a Balanced home page."
+        },
+        {
+          "v": "comprehensive",
+          "label": "Comprehensive",
+          "desc": "Use a Comprehensive home page with every widget."
+        }
+      ]
+    }
+  ],
+  "WS_FUTURE": [
+    {
+      "label": "Personalized AI meeting preparation",
+      "desc": "Briefs that adapt to your style — and, with their consent, to attendees’ shared preferences.",
+      "icon": "icon:calendar"
+    },
+    {
+      "label": "Suggested communication approaches",
+      "desc": "Tips for working with colleagues who have chosen to share their preferences.",
+      "icon": "icon:chat"
+    },
+    {
+      "label": "Individual workstyle coaching",
+      "desc": "Private, optional nudges that only you can see.",
+      "icon": "icon:compass"
+    },
+    {
+      "label": "Team collaboration summaries",
+      "desc": "Aggregated, consent-based views of how a team prefers to work — never individual scores.",
+      "icon": "icon:people"
+    }
+  ],
+  "I": {
+    "home": "icon:home",
+    "inbox": "icon:inbox",
+    "tasks": "icon:tasks",
+    "calendar": "icon:calendar",
+    "meetings": "icon:meetings",
+    "people": "icon:people",
+    "company": "icon:company",
+    "org": "icon:org",
+    "graph": "icon:graph",
+    "pipeline": "icon:pipeline",
+    "portfolio": "icon:portfolio",
+    "diligence": "icon:diligence",
+    "flask": "icon:flask",
+    "folder": "icon:folder",
+    "bolt": "icon:bolt",
+    "capitol": "icon:capitol",
+    "compass": "icon:compass",
+    "doc": "icon:doc",
+    "book": "icon:book",
+    "globe": "icon:globe",
+    "ai": "icon:ai",
+    "plug": "icon:plug",
+    "sliders": "icon:sliders",
+    "help": "icon:help",
+    "search": "icon:search",
+    "plus": "icon:plus",
+    "bell": "icon:bell",
+    "sun": "icon:sun",
+    "moon": "icon:moon",
+    "x": "icon:x",
+    "chevR": "icon:chevR",
+    "chevD": "icon:chevD",
+    "chevL": "icon:chevL",
+    "chevU": "icon:chevU",
+    "arrowR": "icon:arrowR",
+    "arrowUR": "icon:arrowUR",
+    "up": "icon:up",
+    "down": "icon:down",
+    "check": "icon:check",
+    "clock": "icon:clock",
+    "lock": "icon:lock",
+    "shield": "icon:shield",
+    "grip": "icon:grip",
+    "eyeOff": "icon:eyeOff",
+    "send": "icon:send",
+    "layout": "icon:layout",
+    "bookmark": "icon:bookmark",
+    "share": "icon:share",
+    "upload": "icon:upload",
+    "mail": "icon:mail",
+    "camera": "icon:camera",
+    "user": "icon:user",
+    "refresh": "icon:refresh",
+    "edit": "icon:edit",
+    "grid": "icon:grid",
+    "coins": "icon:coins",
+    "scale": "icon:scale",
+    "crown": "icon:crown",
+    "trend": "icon:trend",
+    "chat": "icon:chat",
+    "flag": "icon:flag",
+    "activity": "icon:activity",
+    "target": "icon:target",
+    "menu": "icon:menu",
+    "sidebar": "icon:sidebar",
+    "alert": "icon:alert",
+    "link": "icon:link"
+  }
+}
