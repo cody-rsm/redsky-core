@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 import re
@@ -6,15 +7,14 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, UploadFile, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.responses import JSONResponse, PlainTextResponse
 from psycopg_pool import ConnectionPool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from redsky_ocr import errors, repository
-from redsky_ocr.api.security import Authenticator, verify_webhook_signature
+from redsky_ocr.api.security import GATEWAY, Authenticator, Caller, verify_webhook_signature
 from redsky_ocr.api.serializers import (
     serialize_chunk,
     serialize_document,
@@ -26,32 +26,43 @@ from redsky_ocr.engines.docling_engine import DoclingEngine
 from redsky_ocr.engines.router import build_engines
 from redsky_ocr.engines.tesseract import tesseract_version
 from redsky_ocr.errors import ProcessingError
-from redsky_ocr.runtime import engine_options, is_no_ai, limits
+from redsky_ocr.runtime import engine_options, is_no_ai
+from redsky_ocr.sources import STORAGE, TWENTY, Link, StorageSource, build_sources, twenty_links
 from redsky_ocr.twenty import (
-    Principal,
     TwentyClient,
     TwentyError,
     TwentyForbidden,
     TwentyNotFound,
     TwentyUnauthenticated,
-    TwentyUnavailable,
     parse_attachment,
 )
-from redsky_ocr.validation import sniff
+from redsky_ocr.worker import register_twenty_attachment
 
 logger = logging.getLogger(__name__)
 
-OBJECT_NAME = re.compile(r"^[a-z][A-Za-z0-9]{0,62}$")
 MAX_LIST_LIMIT = 100
-# Multipart framing around the file itself.
-UPLOAD_OVERHEAD_BYTES = 1024 * 1024
+# Registration bodies are small JSON documents.
+MAX_REGISTER_BYTES = 64 * 1024
 # Twenty's attachment events are a few kilobytes.
 MAX_WEBHOOK_BYTES = 1024 * 1024
 FILENAME_UNSAFE = re.compile(r"[\x00-\x1f/\\]")
 
 
-class RegisterAttachmentBody(BaseModel):
-    attachmentId: uuid.UUID
+class SourceReference(BaseModel):
+    system: Literal["storage", "twenty"]
+    id: str = Field(min_length=1, max_length=1024)
+
+
+class LinkReference(BaseModel):
+    system: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
+    object: str = Field(pattern=r"^[a-z][A-Za-z0-9]{0,62}$")
+    id: str = Field(min_length=1, max_length=200)
+
+
+class RegisterBody(BaseModel):
+    source: SourceReference
+    filename: str | None = Field(default=None, max_length=255)
+    links: list[LinkReference] = Field(default_factory=list, max_length=20)
     engine: EngineName = "auto"
 
 
@@ -63,6 +74,7 @@ def create_app(
     settings: Settings,
     pool: ConnectionPool | None = None,
     twenty: TwentyClient | None = None,
+    storage: StorageSource | None = None,
 ) -> FastAPI:
     owns_pool = pool is None
     owns_twenty = twenty is None
@@ -76,36 +88,31 @@ def create_app(
             kwargs={"autocommit": False, "row_factory": _dict_row()},
             open=True,
         )
-        app.state.twenty = twenty or TwentyClient(
-            settings.twenty_url,
-            settings.twenty_timeout_seconds,
-            settings.file_download_hosts,
-            public_url=settings.twenty_public_url,
-        )
-        app.state.auth = Authenticator(app.state.twenty, settings.auth_cache_seconds)
+        app.state.twenty = twenty
+        if app.state.twenty is None and settings.twenty_url:
+            app.state.twenty = TwentyClient(
+                settings.twenty_url,
+                settings.twenty_timeout_seconds,
+                settings.file_download_hosts,
+                public_url=settings.twenty_public_url,
+            )
+        app.state.storage = storage or build_sources(settings, None).get(STORAGE)
+        app.state.auth = Authenticator(settings, app.state.twenty)
         yield
-        if owns_twenty:
+        if owns_twenty and app.state.twenty is not None:
             app.state.twenty.close()
         if owns_pool:
             app.state.pool.close()
 
     app = FastAPI(
         title="RedSky OCR",
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
         # No interactive docs on a service that handles confidential files.
         docs_url=None,
         redoc_url=None,
         openapi_url="/api/v1/openapi.json",
     )
-    if settings.cors_allowed_origins:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=settings.cors_allowed_origins,
-            allow_methods=["GET", "POST"],
-            allow_headers=["Authorization", "Content-Type"],
-            allow_credentials=False,
-        )
 
     @app.middleware("http")
     async def harden_and_log(request: Request, call_next):
@@ -113,7 +120,7 @@ def create_app(
         # Bodies are read whole, and the webhook's before its signature is
         # checked, so their size is bounded before anything is read.
         body_limit = {
-            "/api/v1/documents": settings.max_file_bytes + UPLOAD_OVERHEAD_BYTES,
+            "/api/v1/documents": MAX_REGISTER_BYTES,
             "/api/v1/webhooks/twenty": MAX_WEBHOOK_BYTES,
         }.get(request.url.path)
         if request.method == "POST" and body_limit is not None:
@@ -125,7 +132,7 @@ def create_app(
                 )
             if not length.isdigit() or int(length) > body_limit:
                 return JSONResponse(
-                    {"detail": "The request is larger than the size limit.", "code": errors.FILE_TOO_LARGE},
+                    {"detail": "The request is larger than the size limit."},
                     status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 )
         response = await call_next(request)
@@ -145,19 +152,21 @@ def create_app(
         )
         return response
 
-    def principal_dependency(request: Request) -> Principal:
-        return request.app.state.auth.principal(request)
+    def caller_dependency(request: Request) -> Caller:
+        return request.app.state.auth.caller(request)
 
-    CurrentPrincipal = Annotated[Principal, Depends(principal_dependency)]
+    CurrentCaller = Annotated[Caller, Depends(caller_dependency)]
 
-    def load_document(request: Request, principal: Principal, document_id: uuid.UUID) -> dict[str, Any]:
+    def require_gateway(caller: Caller) -> None:
+        if caller.kind != GATEWAY:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the RedSky API may do this.")
+
+    def load_document(request: Request, caller: Caller, document_id: uuid.UUID) -> dict[str, Any]:
         with request.app.state.pool.connection() as connection:
-            document = repository.get_document(connection, principal.workspace_id, str(document_id))
+            document = repository.get_document(connection, caller.tenant_id, str(document_id))
         # Missing and forbidden look the same: the existence of a document the
         # caller cannot see is not disclosed.
-        if document is None or not request.app.state.auth.can_read_attachment(
-            principal, str(document["attachment_id"])
-        ):
+        if document is None or not request.app.state.auth.can_read(caller, document):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.")
         return document
 
@@ -176,15 +185,21 @@ def create_app(
         assert extraction is not None
         return extraction
 
-    def document_response(request: Request, document: dict[str, Any]) -> dict[str, Any]:
+    def document_responses(request: Request, documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not documents:
+            return []
         with request.app.state.pool.connection() as connection:
-            latest = repository.latest_extraction(connection, str(document["id"]))
-            current = (
-                repository.get_extraction(connection, str(document["current_extraction_id"]))
-                if document["current_extraction_id"]
-                else None
-            )
-        return serialize_document(document, latest, current)
+            links = repository.links_for(connection, [str(document["id"]) for document in documents])
+            responses = []
+            for document in documents:
+                latest = repository.latest_extraction(connection, str(document["id"]))
+                current = (
+                    repository.get_extraction(connection, str(document["current_extraction_id"]))
+                    if document["current_extraction_id"]
+                    else None
+                )
+                responses.append(serialize_document(document, links[str(document["id"])], latest, current))
+        return responses
 
     def ensure_engine_enabled(engine: str) -> None:
         # Format-specific limits (for example Docling without its layout
@@ -200,38 +215,104 @@ def create_app(
 
     def register(
         request: Request,
-        principal: Principal,
-        attachment_record: Any,
+        caller: Caller,
+        *,
+        source_system: str,
+        source_id: str,
+        filename: str,
+        links: list[Link],
         engine: str,
-        always_accepted: bool = False,
+        source_metadata: dict[str, Any] | None = None,
     ) -> JSONResponse:
+        no_ai = is_no_ai(filename)
         with request.app.state.pool.connection() as connection:
-            no_ai = is_no_ai(attachment_record.name)
             document, created = repository.create_document(
                 connection,
-                workspace_id=principal.workspace_id,
-                attachment_id=attachment_record.id,
-                file_id=attachment_record.file_id,
-                filename=attachment_record.name,
-                linked_object=attachment_record.linked_object,
-                linked_record_id=attachment_record.linked_record_id,
-                uploaded_by_user_id=principal.user_id,
-                uploaded_by_workspace_member_id=principal.workspace_member_id,
+                tenant_id=caller.tenant_id,
+                source_system=source_system,
+                source_id=source_id,
+                filename=filename,
+                links=links,
+                uploaded_by=caller.user_id,
                 no_ai=no_ai,
+                source_metadata=source_metadata,
             )
             if not no_ai and (created or document["current_extraction_id"] is None):
                 repository.enqueue_extraction(
                     connection,
                     document_id=str(document["id"]),
                     requested_engine=engine,
-                    requested_by_workspace_member_id=principal.workspace_member_id,
+                    requested_by=caller.user_id,
                     max_attempts=settings.job_max_attempts,
                 )
-            document = repository.get_document(connection, principal.workspace_id, str(document["id"]))
+            document = repository.get_document(connection, caller.tenant_id, str(document["id"]))
         assert document is not None
         return JSONResponse(
-            document_response(request, document),
-            status_code=status.HTTP_202_ACCEPTED if created or always_accepted else status.HTTP_200_OK,
+            document_responses(request, [document])[0],
+            status_code=status.HTTP_202_ACCEPTED if created else status.HTTP_200_OK,
+        )
+
+    def register_storage(request: Request, caller: Caller, body: RegisterBody) -> JSONResponse:
+        require_gateway(caller)
+        storage = request.app.state.storage
+        if storage is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                {"code": errors.SOURCE_NOT_CONFIGURED, "message": "No documents bucket is configured."},
+            )
+        if not body.filename:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "filename is required for storage sources.")
+        try:
+            if not storage.exists(body.source.id):
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "No such object in the documents bucket.")
+        except ProcessingError as error:
+            code = status.HTTP_503_SERVICE_UNAVAILABLE if error.retryable else status.HTTP_422_UNPROCESSABLE_CONTENT
+            raise HTTPException(code, {"code": error.code, "message": error.message}) from error
+        filename = FILENAME_UNSAFE.sub("_", body.filename)[:255] or "document"
+        links = [Link(link.system, link.object, link.id) for link in body.links]
+        return register(
+            request,
+            caller,
+            source_system=STORAGE,
+            source_id=body.source.id,
+            filename=filename,
+            links=links,
+            engine=body.engine,
+        )
+
+    def register_twenty(request: Request, caller: Caller, body: RegisterBody) -> JSONResponse:
+        twenty = request.app.state.twenty
+        if twenty is None or settings.twenty_api_key is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                {"code": errors.SOURCE_NOT_CONFIGURED, "message": "No Twenty source is configured."},
+            )
+        try:
+            attachment_id = str(uuid.UUID(body.source.id))
+        except ValueError as error:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Twenty attachment ids are UUIDs.") from error
+        # A Twenty user's own token decides access; the RedSky API has
+        # already decided, so the service key only confirms the file exists.
+        token = settings.twenty_api_key.get_secret_value() if caller.kind == GATEWAY else caller.twenty_token
+        try:
+            attachment = twenty.get_attachment(token, attachment_id)
+        except (TwentyForbidden, TwentyNotFound) as error:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found.") from error
+        except TwentyUnauthenticated as error:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The token was rejected.") from error
+        except TwentyError as error:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "RedSky could not read the attachment."
+            ) from error
+        return register(
+            request,
+            caller,
+            source_system=TWENTY,
+            source_id=attachment.id,
+            filename=attachment.name,
+            links=twenty_links(attachment),
+            engine=body.engine,
+            source_metadata={"fileId": attachment.file_id} if attachment.file_id else None,
         )
 
     @app.get("/health", include_in_schema=False)
@@ -248,6 +329,7 @@ def create_app(
         except Exception:
             checks["database"] = "unavailable"
         checks["tesseract"] = tesseract_version() or "missing"
+        checks["sources"] = sorted(build_sources(settings, request.app.state.twenty))
         is_ready = checks["database"] == "ok" and checks["tesseract"] != "missing"
         return JSONResponse(
             {"status": "ready" if is_ready else "not_ready", "checks": checks},
@@ -255,7 +337,7 @@ def create_app(
         )
 
     @app.get("/api/v1/engines")
-    def list_engines(principal: CurrentPrincipal) -> dict[str, Any]:
+    def list_engines(caller: CurrentCaller) -> dict[str, Any]:
         engines = build_engines(engine_options(settings))
         described = []
         for name, engine in engines.items():
@@ -276,115 +358,21 @@ def create_app(
         return {"defaultEngine": settings.default_engine, "engines": described}
 
     @app.post("/api/v1/documents", status_code=status.HTTP_202_ACCEPTED)
-    async def create_document(request: Request, principal: CurrentPrincipal) -> Response:
-        content_type = request.headers.get("content-type", "")
-        if content_type.startswith("application/json"):
-            try:
-                body = RegisterAttachmentBody.model_validate(await request.json())
-            except (ValueError, json.JSONDecodeError) as error:
-                raise HTTPException(
-                    status.HTTP_422_UNPROCESSABLE_CONTENT, "Send {attachmentId, engine}."
-                ) from error
-            return await run_in_threadpool(
-                register_existing_attachment, request, principal, str(body.attachmentId), body.engine
-            )
-        if content_type.startswith("multipart/form-data"):
-            form = await request.form(max_files=1, max_fields=10)
-            return await upload_and_register(request, principal, form)
-        raise HTTPException(
-            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            "Send JSON {attachmentId} or a multipart upload with a file.",
-        )
-
-    def register_existing_attachment(
-        request: Request, principal: Principal, attachment_id: str, engine: str
-    ) -> JSONResponse:
-        ensure_engine_enabled(engine)
-        try:
-            attachment_record = request.app.state.twenty.get_attachment(principal.token, attachment_id)
-        except (TwentyForbidden, TwentyNotFound) as error:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found.") from error
-        except TwentyUnauthenticated as error:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The access token was rejected.") from error
-        except TwentyError as error:
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE, "RedSky could not read the attachment."
-            ) from error
-        return register(request, principal, attachment_record, engine)
-
-    async def upload_and_register(request: Request, principal: Principal, form: Any) -> JSONResponse:
-        upload = form.get("file")
-        linked_object = form.get("linkedObject")
-        linked_record_id = form.get("linkedRecordId")
-        engine = form.get("engine") or "auto"
-        if not isinstance(upload, UploadFile) and not hasattr(upload, "read"):
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A file field is required.")
-        if not isinstance(linked_object, str) or not OBJECT_NAME.match(linked_object):
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                "linkedObject must be a record type such as company, person or opportunity.",
-            )
-        try:
-            linked_record_id = str(uuid.UUID(str(linked_record_id)))
-        except ValueError as error:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "linkedRecordId must be a UUID.") from error
-        if engine not in ("auto", "docling", "tesseract", "granite_docling"):
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unknown engine.")
-        ensure_engine_enabled(engine)
-
-        data = await upload.read(settings.max_file_bytes + 1)
-        filename = FILENAME_UNSAFE.sub("_", upload.filename or "document")[:200] or "document"
-        try:
-            # Cheap checks before anything is stored; the worker re-checks
-            # everything inside its sandbox.
-            sniff(data, limits(settings))
-        except ProcessingError as error:
-            code = {
-                errors.FILE_TOO_LARGE: status.HTTP_413_CONTENT_TOO_LARGE,
-                errors.UNSUPPORTED_TYPE: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            }.get(error.code, status.HTTP_422_UNPROCESSABLE_CONTENT)
-            raise HTTPException(code, {"code": error.code, "message": error.message}) from error
-
-        def store() -> JSONResponse:
-            try:
-                attachment_id = request.app.state.twenty.create_attachment(
-                    principal.token,
-                    filename=filename,
-                    data=data,
-                    linked_object=linked_object,
-                    linked_record_id=linked_record_id,
-                )
-                attachment_record = request.app.state.twenty.get_attachment(
-                    principal.token, attachment_id
-                )
-            except TwentyUnauthenticated as error:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The access token was rejected.") from error
-            except (TwentyForbidden, TwentyNotFound) as error:
-                raise HTTPException(
-                    status.HTTP_403_FORBIDDEN,
-                    "RedSky did not allow attaching a file to that record.",
-                ) from error
-            except TwentyUnavailable as error:
-                raise HTTPException(
-                    status.HTTP_503_SERVICE_UNAVAILABLE, "RedSky could not store the file."
-                ) from error
-            except TwentyError as error:
-                raise HTTPException(
-                    status.HTTP_502_BAD_GATEWAY, "RedSky could not store the file."
-                ) from error
-            # Twenty's attachment.created webhook may register the document
-            # before this line does; the upload was accepted either way.
-            return register(request, principal, attachment_record, engine, always_accepted=True)
-
-        return await run_in_threadpool(store)
+    def create_document(request: Request, caller: CurrentCaller, body: RegisterBody) -> JSONResponse:
+        ensure_engine_enabled(body.engine)
+        if body.source.system == STORAGE:
+            return register_storage(request, caller, body)
+        return register_twenty(request, caller, body)
 
     @app.get("/api/v1/documents")
     def list_documents(
         request: Request,
-        principal: CurrentPrincipal,
-        attachmentId: uuid.UUID | None = None,
-        linkedObject: str | None = None,
-        linkedRecordId: uuid.UUID | None = None,
+        caller: CurrentCaller,
+        sourceSystem: Literal["storage", "twenty"] | None = None,
+        sourceId: Annotated[str | None, Query(max_length=1024)] = None,
+        linkSystem: Annotated[str | None, Query(max_length=32)] = None,
+        linkObject: Annotated[str | None, Query(max_length=63)] = None,
+        linkId: Annotated[str | None, Query(max_length=200)] = None,
         status_filter: Annotated[
             Literal["uploaded", "queued", "processing", "completed", "failed", "needs_review"] | None,
             Query(alias="status"),
@@ -394,33 +382,40 @@ def create_app(
         with request.app.state.pool.connection() as connection:
             rows = repository.list_documents(
                 connection,
-                principal.workspace_id,
-                attachment_id=str(attachmentId) if attachmentId else None,
-                linked_object=linkedObject,
-                linked_record_id=str(linkedRecordId) if linkedRecordId else None,
+                caller.tenant_id,
+                source_system=sourceSystem,
+                source_id=sourceId,
+                link=(linkSystem, linkObject, linkId),
                 status=status_filter,
                 limit=limit,
             )
-        visible = [
-            row
-            for row in rows
-            if request.app.state.auth.can_read_attachment(principal, str(row["attachment_id"]))
-        ]
-        return {"documents": [document_response(request, row) for row in visible]}
+        visible = [row for row in rows if request.app.state.auth.can_read(caller, row)]
+        return {"documents": document_responses(request, visible)}
 
     @app.get("/api/v1/documents/{document_id}")
-    def get_document(request: Request, principal: CurrentPrincipal, document_id: uuid.UUID) -> dict[str, Any]:
-        return document_response(request, load_document(request, principal, document_id))
+    def get_document(request: Request, caller: CurrentCaller, document_id: uuid.UUID) -> dict[str, Any]:
+        return document_responses(request, [load_document(request, caller, document_id)])[0]
+
+    @app.delete("/api/v1/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+    def delete_document(request: Request, caller: CurrentCaller, document_id: uuid.UUID) -> Response:
+        # The RedSky API deletes the original; this removes what was derived
+        # from it.
+        require_gateway(caller)
+        with request.app.state.pool.connection() as connection:
+            deleted = repository.delete_document(connection, caller.tenant_id, str(document_id))
+        if deleted is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @app.get("/api/v1/documents/{document_id}/content")
     def get_content(
         request: Request,
-        principal: CurrentPrincipal,
+        caller: CurrentCaller,
         document_id: uuid.UUID,
         format: Literal["json", "markdown", "text"] = "json",
         download: bool = False,
     ) -> Response:
-        document = load_document(request, principal, document_id)
+        document = load_document(request, caller, document_id)
         extraction = current_extraction(request, document)
         stem = re.sub(r"[^A-Za-z0-9._-]+", "_", document["filename"].rsplit(".", 1)[0])[:100] or "document"
         if format in ("markdown", "text"):
@@ -447,8 +442,8 @@ def create_app(
         )
 
     @app.get("/api/v1/documents/{document_id}/tables")
-    def get_tables(request: Request, principal: CurrentPrincipal, document_id: uuid.UUID) -> dict[str, Any]:
-        document = load_document(request, principal, document_id)
+    def get_tables(request: Request, caller: CurrentCaller, document_id: uuid.UUID) -> dict[str, Any]:
+        document = load_document(request, caller, document_id)
         extraction = current_extraction(request, document)
         with request.app.state.pool.connection() as connection:
             tables = repository.list_tables(connection, str(extraction["id"]))
@@ -459,8 +454,8 @@ def create_app(
         }
 
     @app.get("/api/v1/documents/{document_id}/chunks")
-    def get_chunks(request: Request, principal: CurrentPrincipal, document_id: uuid.UUID) -> dict[str, Any]:
-        document = load_document(request, principal, document_id)
+    def get_chunks(request: Request, caller: CurrentCaller, document_id: uuid.UUID) -> dict[str, Any]:
+        document = load_document(request, caller, document_id)
         extraction = current_extraction(request, document)
         with request.app.state.pool.connection() as connection:
             chunks = repository.list_chunks(connection, str(extraction["id"]))
@@ -474,11 +469,11 @@ def create_app(
     @app.post("/api/v1/documents/{document_id}/reprocess", status_code=status.HTTP_202_ACCEPTED)
     def reprocess(
         request: Request,
-        principal: CurrentPrincipal,
+        caller: CurrentCaller,
         document_id: uuid.UUID,
         body: ReprocessBody | None = None,
     ) -> JSONResponse:
-        document = load_document(request, principal, document_id)
+        document = load_document(request, caller, document_id)
         if document["no_ai"]:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
@@ -491,7 +486,7 @@ def create_app(
                 connection,
                 document_id=str(document["id"]),
                 requested_engine=engine,
-                requested_by_workspace_member_id=principal.workspace_member_id,
+                requested_by=caller.user_id,
                 max_attempts=settings.job_max_attempts,
             )
             if not created and extraction["requested_engine"] != engine:
@@ -505,31 +500,31 @@ def create_app(
                         ),
                     },
                 )
-            document = repository.get_document(connection, principal.workspace_id, str(document["id"]))
+            document = repository.get_document(connection, caller.tenant_id, str(document["id"]))
         assert document is not None
         return JSONResponse(
-            document_response(request, document),
+            document_responses(request, [document])[0],
             status_code=status.HTTP_202_ACCEPTED if created else status.HTTP_200_OK,
         )
 
     @app.get("/api/v1/search")
     def search(
         request: Request,
-        principal: CurrentPrincipal,
+        caller: CurrentCaller,
         q: Annotated[str, Query(min_length=2, max_length=500)],
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
     ) -> dict[str, Any]:
         with request.app.state.pool.connection() as connection:
             # Over-fetch: hits the caller may not see are dropped below.
-            rows = repository.search_pages(connection, principal.workspace_id, q, limit * 3)
+            rows = repository.search_pages(connection, caller.tenant_id, q, limit * 3)
         results = []
         for row in rows:
-            if not request.app.state.auth.can_read_attachment(principal, str(row["attachment_id"])):
+            if not request.app.state.auth.can_read(caller, row):
                 continue
             results.append(
                 {
                     "documentId": str(row["document_id"]),
-                    "attachmentId": str(row["attachment_id"]),
+                    "source": {"system": row["source_system"], "id": row["source_id"]},
                     "filename": row["filename"],
                     "pageNumber": row["page_number"],
                     "rank": round(float(row["rank"]), 4),
@@ -564,41 +559,28 @@ def create_app(
         workspace_id = event.get("workspaceId")
         if not workspace_id or not record.get("id") or not str(event_name).startswith("attachment."):
             return "ignored"
-        attachment_id = str(record["id"])
+        tenant_id = settings.twenty_tenant(workspace_id)
         with request.app.state.pool.connection() as connection:
             if event_name in ("attachment.deleted", "attachment.destroyed"):
                 # Extracted text goes with the file it came from.
-                return "purged" if repository.delete_document(connection, workspace_id, attachment_id) else "ignored"
+                deleted = repository.delete_document_by_source(connection, tenant_id, TWENTY, str(record["id"]))
+                if deleted is None:
+                    return "ignored"
+                if settings.events_url:
+                    repository.add_event(connection, deleted, "document.deleted")
+                return "purged"
             if event_name not in ("attachment.created", "attachment.restored"):
                 return "ignored"
             if not settings.auto_process_attachments:
                 return "ignored"
-            attachment_record = parse_attachment(record)
-            no_ai = is_no_ai(attachment_record.name)
-            document, created = repository.create_document(
-                connection,
-                workspace_id=workspace_id,
-                attachment_id=attachment_id,
-                file_id=attachment_record.file_id,
-                filename=attachment_record.name,
-                linked_object=attachment_record.linked_object,
-                linked_record_id=attachment_record.linked_record_id,
-                uploaded_by_user_id=event.get("userId"),
-                uploaded_by_workspace_member_id=event.get("workspaceMemberId"),
-                no_ai=no_ai,
-            )
-            if not created:
+            attachment = parse_attachment(record)
+            if event.get("workspaceMemberId") and attachment.created_by_workspace_member_id is None:
+                attachment = dataclasses.replace(
+                    attachment, created_by_workspace_member_id=event["workspaceMemberId"]
+                )
+            if not register_twenty_attachment(connection, settings, tenant_id, attachment):
                 return "duplicate"
-            if no_ai:
-                return "recorded_no_ai"
-            repository.enqueue_extraction(
-                connection,
-                document_id=str(document["id"]),
-                requested_engine=settings.default_engine,
-                requested_by_workspace_member_id=event.get("workspaceMemberId"),
-                max_attempts=settings.job_max_attempts,
-            )
-        return "queued"
+            return "recorded_no_ai" if is_no_ai(attachment.name) else "queued"
 
     return app
 

@@ -6,7 +6,6 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
-ATTACHMENT_FILE_FIELD_UNIVERSAL_IDENTIFIER = "20202020-15db-460e-8166-c7b5d87ad4be"
 TARGET_FIELD = re.compile(r"^target([A-Z][A-Za-z0-9]*)Id$")
 MAX_REDIRECTS = 3
 
@@ -15,24 +14,6 @@ query RedSkyOcrCurrentUser {
   currentUser { id currentWorkspace { id } workspaceMember { id } }
 }
 """
-
-CREATE_FILE_UPLOAD_MUTATION = """
-mutation RedSkyOcrCreateFileUpload($filename: String!, $size: Float!, $fieldUniversalIdentifier: String) {
-  createFileUpload(
-    filename: $filename
-    size: $size
-    fileFolder: FilesField
-    fieldMetadataUniversalIdentifier: $fieldUniversalIdentifier
-  ) { fileId uploadUrl contentType }
-}
-"""
-
-COMPLETE_FILE_UPLOAD_MUTATION = """
-mutation RedSkyOcrCompleteFileUpload($fileId: String!) {
-  completeFileUpload(fileId: $fileId) { id }
-}
-"""
-
 
 class TwentyError(Exception):
     pass
@@ -55,14 +36,14 @@ class TwentyUnavailable(TwentyError):
 
 
 @dataclass(frozen=True)
-class Principal:
+class TwentyUser:
     user_id: str
     workspace_id: str
     workspace_member_id: str | None
     token: str
 
     def __repr__(self) -> str:
-        return f"Principal(user_id={self.user_id!r}, workspace_id={self.workspace_id!r})"
+        return f"TwentyUser(user_id={self.user_id!r}, workspace_id={self.workspace_id!r})"
 
 
 @dataclass(frozen=True)
@@ -101,14 +82,14 @@ class TwentyClient:
     def close(self) -> None:
         self.client.close()
 
-    def current_user(self, token: str) -> Principal:
+    def current_user(self, token: str) -> TwentyUser:
         data = self._graphql("/metadata", CURRENT_USER_QUERY, {}, token)
         user = data.get("currentUser") or {}
         workspace = user.get("currentWorkspace") or {}
         if not user.get("id") or not workspace.get("id"):
             raise TwentyUnauthenticated("The token does not belong to a workspace user.")
         member = user.get("workspaceMember") or {}
-        return Principal(
+        return TwentyUser(
             user_id=user["id"],
             workspace_id=workspace["id"],
             workspace_member_id=member.get("id"),
@@ -155,53 +136,6 @@ class TwentyClient:
         except (TwentyForbidden, TwentyNotFound):
             return False
         return True
-
-    def create_attachment(
-        self,
-        token: str,
-        *,
-        filename: str,
-        data: bytes,
-        linked_object: str,
-        linked_record_id: str,
-    ) -> str:
-        upload = self._graphql(
-            "/metadata",
-            CREATE_FILE_UPLOAD_MUTATION,
-            {
-                "filename": filename,
-                "size": len(data),
-                "fieldUniversalIdentifier": ATTACHMENT_FILE_FIELD_UNIVERSAL_IDENTIFIER,
-            },
-            token,
-        )["createFileUpload"]
-        upload_url = self._absolute(upload["uploadUrl"])
-        self._check_host(upload_url)
-        try:
-            put = self.client.put(
-                upload_url, content=data, headers={"Content-Type": upload["contentType"]}
-            )
-        except httpx.HTTPError as error:
-            raise TwentyUnavailable("Uploading the file to Twenty failed.") from error
-        if put.status_code >= 300:
-            raise TwentyError(f"Twenty refused the file upload ({put.status_code}).")
-        self._graphql(
-            "/metadata", COMPLETE_FILE_UPLOAD_MUTATION, {"fileId": upload["fileId"]}, token
-        )
-        created = self._request(
-            "POST",
-            "/rest/attachments",
-            token,
-            json={
-                "name": filename,
-                target_field(linked_object): linked_record_id,
-                "file": [{"fileId": upload["fileId"], "label": filename}],
-            },
-        )
-        record = (created.get("data") or {}).get("createAttachment")
-        if not record or not record.get("id"):
-            raise TwentyError("Twenty did not return the new attachment.")
-        return record["id"]
 
     def download(self, url: str, max_bytes: int) -> bytes:
         current = self._absolute(url)
@@ -316,10 +250,6 @@ def twenty_timestamp(value: str) -> str:
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
     return moment.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-
-def target_field(object_name_singular: str) -> str:
-    return f"target{object_name_singular[:1].upper()}{object_name_singular[1:]}Id"
 
 
 def parse_attachment(record: dict[str, Any]) -> Attachment:

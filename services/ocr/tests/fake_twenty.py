@@ -51,7 +51,6 @@ class FakeTwenty:
     def __init__(self) -> None:
         self.users: dict[str, FakeUser] = {}
         self.attachments: dict[str, FakeAttachment] = {}
-        self.pending_uploads: dict[str, dict] = {}
         self.available = True
         self.calls: list[str] = []
 
@@ -124,9 +123,6 @@ class FakeTwenty:
                 if attachment.file_id == file_id:
                     return httpx.Response(200, content=attachment.data)
             return httpx.Response(404)
-        if request.method == "PUT" and path.startswith("/file-upload/"):
-            self.pending_uploads[path.rsplit("/", 1)[-1]]["data"] = request.content
-            return httpx.Response(200)
 
         user = self.users.get(request.headers.get("authorization", "").removeprefix("Bearer "))
         if path == "/metadata":
@@ -140,8 +136,6 @@ class FakeTwenty:
         match = re.fullmatch(r"/rest/attachments/([^/]+)", path)
         if request.method == "GET" and match:
             return self._get_attachment(user, match.group(1))
-        if request.method == "POST" and path == "/rest/attachments":
-            return self._create_attachment(user, json.loads(request.content))
         return httpx.Response(404, json={"statusCode": 404, "error": "NotFoundException"})
 
     def _metadata(self, user: FakeUser | None, payload: dict) -> httpx.Response:
@@ -175,23 +169,6 @@ class FakeTwenty:
                     }
                 },
             )
-        if "createFileUpload" in query:
-            file_id = str(uuid.uuid4())
-            self.pending_uploads[file_id] = {"workspace": user.workspace_id}
-            return httpx.Response(
-                200,
-                json={
-                    "data": {
-                        "createFileUpload": {
-                            "fileId": file_id,
-                            "uploadUrl": f"{BASE_URL}/file-upload/{file_id}?token=upload",
-                            "contentType": "application/octet-stream",
-                        }
-                    }
-                },
-            )
-        if "completeFileUpload" in query:
-            return httpx.Response(200, json={"data": {"completeFileUpload": {"id": payload["variables"]["fileId"]}}})
         return httpx.Response(200, json={"errors": [{"message": "Unknown", "extensions": {"code": "BAD_REQUEST"}}]})
 
     def _denied(self) -> httpx.Response:
@@ -245,20 +222,3 @@ class FakeTwenty:
                 "totalCount": len(matching),
             },
         )
-
-    def _create_attachment(self, user: FakeUser, body: dict) -> httpx.Response:
-        file_id = body["file"][0]["fileId"]
-        upload = self.pending_uploads.pop(file_id)
-        target_field = next(key for key in body if key.startswith("target"))
-        attachment = FakeAttachment(
-            id=str(uuid.uuid4()),
-            workspace_id=user.workspace_id,
-            name=body["name"],
-            data=upload["data"],
-            target_field=target_field,
-            target_id=body[target_field],
-            file_id=file_id,
-            created_by=user.workspace_member_id,
-        )
-        self.attachments[attachment.id] = attachment
-        return httpx.Response(201, json={"data": {"createAttachment": self.record(attachment)}})

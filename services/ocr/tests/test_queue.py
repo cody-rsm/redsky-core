@@ -1,20 +1,19 @@
 import uuid
 
 from redsky_ocr import errors, repository
+from redsky_ocr.sources import Link
 
 
-def make_document(pool, workspace_id, name="memo.pdf", attachment_id=None):
+def make_document(pool, tenant_id, name="memo.pdf"):
     with pool.connection() as connection:
         document, created = repository.create_document(
             connection,
-            workspace_id=workspace_id,
-            attachment_id=attachment_id or str(uuid.uuid4()),
-            file_id=None,
+            tenant_id=tenant_id,
+            source_system="storage",
+            source_id=f"documents/{uuid.uuid4()}/{name}",
             filename=name,
-            linked_object="company",
-            linked_record_id=str(uuid.uuid4()),
-            uploaded_by_user_id=None,
-            uploaded_by_workspace_member_id=None,
+            links=[Link("twenty", "company", str(uuid.uuid4()))],
+            uploaded_by=None,
             no_ai=False,
         )
     assert created
@@ -27,7 +26,7 @@ def enqueue(pool, document, engine="auto", max_attempts=3):
             connection,
             document_id=str(document["id"]),
             requested_engine=engine,
-            requested_by_workspace_member_id=None,
+            requested_by=None,
             max_attempts=max_attempts,
         )
 
@@ -226,10 +225,11 @@ def test_deleting_a_document_purges_everything_derived_from_it(pool, workspace_i
         repository.complete_extraction(connection, job["id"], payload())
 
     with pool.connection() as connection:
-        assert repository.delete_document(connection, workspace_id, str(document["attachment_id"]))
+        assert repository.delete_document(connection, workspace_id, str(document["id"]))
         leftovers = connection.execute(
             """
             select (select count(*) from redsky_ocr.extraction)
+                 + (select count(*) from redsky_ocr.document_link)
                  + (select count(*) from redsky_ocr.page)
                  + (select count(*) from redsky_ocr.extracted_table)
                  + (select count(*) from redsky_ocr.chunk)

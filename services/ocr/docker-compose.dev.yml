@@ -1,10 +1,12 @@
-# Local development only: a throwaway Twenty, its Postgres and Redis, and
-# redsky-ocr built from this directory. Uses the stock Twenty image, which
-# includes Enterprise-licensed code, so never load real data into it.
+# Local development only: a throwaway Twenty, its Postgres and Redis, an
+# S3-compatible stand-in for the RedSky documents bucket, and redsky-ocr built
+# from this directory. Uses the stock Twenty image, which includes
+# Enterprise-licensed code, so never load real data into it.
 #
-#   docker compose -f docker-compose.dev.yml up -d --build
+#   docker compose -f docker-compose.dev.yml --profile ocr up -d --build
 #
 # Twenty: http://localhost:3000   redsky-ocr: http://localhost:8080
+# Documents bucket: http://localhost:5000 (create it once, see the README)
 name: redsky-ocr-dev
 
 x-twenty-environment: &twenty-environment
@@ -79,6 +81,12 @@ services:
       timeout: 5s
       retries: 20
 
+  # moto's S3 server (Apache-2.0), standing in for the Railway bucket.
+  storage:
+    profiles: ["ocr"]
+    image: motoserver/moto:5.2.3
+    ports: ["5000:5000"]
+
   redsky-ocr:
     profiles: ["ocr"]
     build:
@@ -88,13 +96,21 @@ services:
     ports: ["8080:8080"]
     environment:
       REDSKY_OCR_DATABASE_URL: postgresql://redsky_ocr:redsky_ocr_local@db:5432/redsky_ocr
+      REDSKY_OCR_SERVICE_TOKENS: local-development-service-token-0123456789
+      REDSKY_OCR_STORAGE_BUCKET: redsky-documents
+      REDSKY_OCR_STORAGE_ENDPOINT: http://storage:5000
+      REDSKY_OCR_STORAGE_REGION: us-east-1
+      REDSKY_OCR_STORAGE_ACCESS_KEY_ID: testing
+      REDSKY_OCR_STORAGE_SECRET_ACCESS_KEY: testing
+      REDSKY_OCR_STORAGE_ADDRESSING_STYLE: path
       REDSKY_OCR_TWENTY_URL: http://twenty:3000
       # Twenty signs file URLs with its SERVER_URL; they are fetched over
       # REDSKY_OCR_TWENTY_URL instead.
       REDSKY_OCR_TWENTY_PUBLIC_URL: http://localhost:3000
       REDSKY_OCR_TWENTY_API_KEY: ${REDSKY_OCR_TWENTY_API_KEY:-}
       REDSKY_OCR_TWENTY_WEBHOOK_SECRET: ${REDSKY_OCR_TWENTY_WEBHOOK_SECRET:-}
-      REDSKY_OCR_CORS_ALLOWED_ORIGINS: http://localhost:3000
+      # So scripts/e2e_twenty.py can call it with Twenty users' tokens.
+      REDSKY_OCR_ACCEPT_TWENTY_TOKENS: "true"
     depends_on:
       db: { condition: service_healthy }
 

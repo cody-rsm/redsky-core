@@ -3,8 +3,10 @@ import sys
 import uuid
 from pathlib import Path
 
+import boto3
 import psycopg
 import pytest
+from moto import mock_aws
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -21,6 +23,8 @@ from redsky_ocr.twenty import TwentyClient  # noqa: E402
 
 TEST_DATABASE_URL = os.environ.get("REDSKY_OCR_TEST_DATABASE_URL")
 WEBHOOK_SECRET = "test-webhook-secret"
+SERVICE_TOKEN = "gateway-token-0123456789abcdefghijklmnop"
+BUCKET = "redsky-documents"
 
 
 @pytest.fixture(scope="session")
@@ -66,7 +70,7 @@ def pool(database_url):
         connection.execute(
             "truncate redsky_ocr.document, redsky_ocr.extraction, redsky_ocr.page,"
             " redsky_ocr.extracted_table, redsky_ocr.chunk, redsky_ocr.extraction_artifact,"
-            " redsky_ocr.sync_state cascade"
+            " redsky_ocr.sync_state, redsky_ocr.document_link, redsky_ocr.event_outbox cascade"
         )
     pool = ConnectionPool(
         database_url, min_size=1, max_size=6, kwargs={"row_factory": dict_row, "autocommit": False}, open=True
@@ -91,13 +95,27 @@ def service_key(fake_twenty, workspace_id):
 
 
 @pytest.fixture
-def settings(database_url, tmp_path, service_key) -> Settings:
+def s3():
+    with mock_aws():
+        client = boto3.client("s3", region_name="us-east-1")
+        client.create_bucket(Bucket=BUCKET)
+        yield client
+
+
+@pytest.fixture
+def settings(database_url, tmp_path, service_key, s3) -> Settings:
     return Settings(
         database_url=database_url,
+        service_tokens=SERVICE_TOKEN,
+        storage_bucket=BUCKET,
+        storage_region="us-east-1",
+        storage_access_key_id="testing",
+        storage_secret_access_key="testing",
         twenty_url=BASE_URL,
         twenty_public_url=PUBLIC_URL,
         twenty_api_key=service_key.token,
         twenty_webhook_secret=WEBHOOK_SECRET,
+        accept_twenty_tokens=True,
         work_dir=tmp_path / "work",
         worker_enabled=False,
         job_timeout_seconds=120,

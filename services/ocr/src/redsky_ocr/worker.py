@@ -16,10 +16,12 @@ from psycopg_pool import ConnectionPool
 from redsky_ocr import errors, repository
 from redsky_ocr.config import Settings
 from redsky_ocr.errors import ProcessingError
+from redsky_ocr.events import EventDelivery
 from redsky_ocr.malware import scan_with_clamd
 from redsky_ocr.runtime import engine_options, is_no_ai, limits
 from redsky_ocr.sandbox import run_in_sandbox
-from redsky_ocr.twenty import FileTooLarge, TwentyClient, TwentyNotFound, TwentyUnavailable
+from redsky_ocr.sources import TWENTY, DocumentSource, build_sources, twenty_links
+from redsky_ocr.twenty import TwentyClient
 from redsky_ocr.validation import sniff
 
 logger = logging.getLogger(__name__)
@@ -41,12 +43,18 @@ class Worker:
         self,
         settings: Settings,
         pool: ConnectionPool,
-        twenty: TwentyClient,
+        twenty: TwentyClient | None,
+        sources: dict[str, DocumentSource] | None = None,
+        events: EventDelivery | None = None,
         worker_id: str | None = None,
     ) -> None:
         self.settings = settings
         self.pool = pool
         self.twenty = twenty
+        self.sources = sources if sources is not None else build_sources(settings, twenty)
+        if events is None and settings.events_url and settings.events_secret:
+            events = EventDelivery(settings.events_url, settings.events_secret.get_secret_value())
+        self.events = events
         self.worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}:{id(self):x}"
         self.engine_options = engine_options(settings)
         self.limits = limits(settings)
@@ -79,9 +87,15 @@ class Worker:
         ):
             self.last_reconcile = time.monotonic()
             try:
-                self.reconcile()
+                self.reconcile_twenty()
             except Exception:
                 logger.exception("reconciliation failed")
+
+        if self.events is not None:
+            try:
+                self.events.deliver_due(self.pool)
+            except Exception:
+                logger.exception("event delivery failed")
 
         with self.pool.connection() as connection:
             job = repository.claim_next(connection, self.worker_id)
@@ -107,6 +121,7 @@ class Worker:
             with self.pool.connection() as connection:
                 if repository.lock_owned(connection, extraction_id, self.worker_id):
                     outcome = repository.complete_extraction(connection, extraction_id, payload)
+                    self._record_event(connection, str(job["document_id"]), outcome, extraction_id)
                 else:
                     outcome = "abandoned"
         except ProcessingError as error:
@@ -149,44 +164,25 @@ class Worker:
             raise ProcessingError(
                 errors.NO_AI_DOCUMENT, "The file is marked _NOAI; its content is never extracted."
             )
-        if self.settings.twenty_api_key is None:
+        source = self.sources.get(document["source_system"])
+        if source is None:
             raise ProcessingError(
-                errors.SOURCE_UNAVAILABLE,
-                "REDSKY_OCR_TWENTY_API_KEY is not set, so the file cannot be fetched.",
-                retryable=True,
+                errors.SOURCE_NOT_CONFIGURED,
+                f"This deployment has no '{document['source_system']}' source configured.",
             )
-
-        api_key = self.settings.twenty_api_key.get_secret_value()
-        try:
-            attachment = self.twenty.get_attachment(api_key, str(document["attachment_id"]))
-            if not attachment.url:
-                raise TwentyNotFound("The attachment has no file.")
-            data = self.twenty.download(attachment.url, self.settings.max_file_bytes)
-        except TwentyNotFound as error:
-            raise ProcessingError(
-                errors.SOURCE_DELETED, "The attachment or its file no longer exists in Twenty."
-            ) from error
-        except FileTooLarge as error:
-            raise ProcessingError(
-                errors.FILE_TOO_LARGE,
-                f"The file is larger than the {self.settings.max_file_bytes // (1024 * 1024)} MB limit.",
-            ) from error
-        except TwentyUnavailable as error:
-            raise ProcessingError(
-                errors.SOURCE_UNAVAILABLE, "Twenty could not be reached.", retryable=True
-            ) from error
-
+        fetched = source.fetch(document, self.settings.max_file_bytes)
+        data = fetched.data
         sniffed = sniff(data, self.limits)
         with self.pool.connection() as connection:
             repository.record_file_details(
                 connection,
                 str(document["id"]),
-                filename=attachment.name,
                 size_bytes=len(data),
                 sha256=hashlib.sha256(data).hexdigest(),
                 mime_type=sniffed.mime_type,
-                linked_object=attachment.linked_object,
-                linked_record_id=attachment.linked_record_id,
+                filename=fetched.filename,
+                links=fetched.links,
+                source_metadata=fetched.metadata,
             )
         if self.settings.clamav_host:
             scan_with_clamd(data, self.settings.clamav_host, self.settings.clamav_port)
@@ -194,7 +190,7 @@ class Worker:
         source = job_dir / f"source.{sniffed.extension}"
         source.write_bytes(data)
         os.chmod(source, 0o600)
-        del data
+        del data, fetched
         return run_in_sandbox(
             source,
             job["requested_engine"],
@@ -207,8 +203,12 @@ class Worker:
             job_dir,
         )
 
-    def reconcile(self) -> int:
-        if not self.settings.auto_process_attachments or self.settings.twenty_api_key is None:
+    def reconcile_twenty(self) -> int:
+        if (
+            self.twenty is None
+            or not self.settings.auto_process_attachments
+            or self.settings.twenty_api_key is None
+        ):
             return 0
         api_key = self.settings.twenty_api_key.get_secret_value()
         registered = 0
@@ -218,13 +218,13 @@ class Worker:
             ).fetchone()["locked"]
             if not locked:
                 return 0
-            workspace_id = self.twenty.current_workspace_id(api_key)
-            cursor = repository.get_sync_cursor(connection, workspace_id)
+            tenant_id = self.settings.twenty_tenant(self.twenty.current_workspace_id(api_key))
+            cursor = repository.get_sync_cursor(connection, TWENTY, tenant_id)
             if cursor is None:
                 # First sweep: start from now. Older files are a deliberate
                 # backfill (`redsky-ocr backfill --since`), not a side effect.
                 now = connection.execute("select now() as now").fetchone()["now"].isoformat()
-                repository.set_sync_cursor(connection, workspace_id, now)
+                repository.set_sync_cursor(connection, TWENTY, tenant_id, now)
                 return 0
             since = connection.execute(
                 "select (%s::timestamptz - %s::interval) as since", (cursor, RECONCILE_OVERLAP)
@@ -235,46 +235,36 @@ class Worker:
                 page, after = self.twenty.list_attachments_created_since(api_key, since, after)
                 for attachment, created_at in page:
                     newest = max(newest, created_at, key=_timestamp)
-                    if self._register(connection, workspace_id, attachment):
+                    if register_twenty_attachment(connection, self.settings, tenant_id, attachment):
                         registered += 1
                 if after is None:
                     break
-            repository.set_sync_cursor(connection, workspace_id, newest)
+            repository.set_sync_cursor(connection, TWENTY, tenant_id, newest)
         if registered:
             logger.warning("queued attachments the webhook missed", extra={"count": registered})
         return registered
-
-    def _register(self, connection, workspace_id: str, attachment) -> bool:
-        no_ai = is_no_ai(attachment.name)
-        document, created = repository.create_document(
-            connection,
-            workspace_id=workspace_id,
-            attachment_id=attachment.id,
-            file_id=attachment.file_id,
-            filename=attachment.name,
-            linked_object=attachment.linked_object,
-            linked_record_id=attachment.linked_record_id,
-            uploaded_by_user_id=None,
-            uploaded_by_workspace_member_id=attachment.created_by_workspace_member_id,
-            no_ai=no_ai,
-        )
-        if created and not no_ai:
-            repository.enqueue_extraction(
-                connection,
-                document_id=str(document["id"]),
-                requested_engine=self.settings.default_engine,
-                requested_by_workspace_member_id=None,
-                max_attempts=self.settings.job_max_attempts,
-            )
-        return created
 
     def _fail(self, extraction_id: str, code: str, message: str, retryable: bool) -> str:
         with self.pool.connection() as connection:
             if not repository.lock_owned(connection, extraction_id, self.worker_id):
                 return "abandoned"
-            return repository.fail_extraction(
+            outcome = repository.fail_extraction(
                 connection, extraction_id, code, message, retryable=retryable
             )
+            if outcome == "failed":
+                document_id = repository.get_extraction(connection, extraction_id)["document_id"]
+                self._record_event(connection, str(document_id), outcome, extraction_id)
+            return outcome
+
+    def _record_event(
+        self, connection, document_id: str, outcome: str, extraction_id: str
+    ) -> None:
+        if not self.settings.events_url:
+            return
+        document = connection.execute(
+            "select * from redsky_ocr.document where id = %s", (document_id,)
+        ).fetchone()
+        repository.add_event(connection, document, f"document.{outcome}", extraction_id)
 
     def _heartbeat(self, extraction_id: str, stop: threading.Event) -> None:
         while not stop.wait(HEARTBEAT_SECONDS):
@@ -283,6 +273,34 @@ class Worker:
                     repository.heartbeat(connection, extraction_id, self.worker_id)
             except Exception:
                 logger.warning("heartbeat failed", extra={"extraction": extraction_id})
+
+
+def register_twenty_attachment(connection, settings: Settings, tenant_id: str, attachment) -> bool:
+    no_ai = is_no_ai(attachment.name)
+    document, created = repository.create_document(
+        connection,
+        tenant_id=tenant_id,
+        source_system=TWENTY,
+        source_id=attachment.id,
+        filename=attachment.name,
+        links=twenty_links(attachment),
+        uploaded_by=(
+            f"twenty:{attachment.created_by_workspace_member_id}"
+            if attachment.created_by_workspace_member_id
+            else None
+        ),
+        no_ai=no_ai,
+        source_metadata={"fileId": attachment.file_id} if attachment.file_id else None,
+    )
+    if created and not no_ai:
+        repository.enqueue_extraction(
+            connection,
+            document_id=str(document["id"]),
+            requested_engine=settings.default_engine,
+            requested_by=None,
+            max_attempts=settings.job_max_attempts,
+        )
+    return created
 
 
 def _timestamp(value: str) -> datetime:

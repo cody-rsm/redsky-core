@@ -7,6 +7,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from redsky_ocr import errors
+from redsky_ocr.sources import Link
 
 RETRY_BASE_SECONDS = 30
 
@@ -15,65 +16,92 @@ def new_id() -> str:
     return str(uuid.uuid4())
 
 
-def find_document_by_attachment(
-    connection: Connection, workspace_id: str, attachment_id: str
+def find_document_by_source(
+    connection: Connection, tenant_id: str, source_system: str, source_id: str
 ) -> dict[str, Any] | None:
     return connection.execute(
-        "select * from redsky_ocr.document where workspace_id = %s and attachment_id = %s",
-        (workspace_id, attachment_id),
+        """
+        select * from redsky_ocr.document
+        where tenant_id = %s and source_system = %s and source_id = %s
+        """,
+        (tenant_id, source_system, source_id),
     ).fetchone()
 
 
-def get_document(connection: Connection, workspace_id: str, document_id: str) -> dict[str, Any] | None:
+def get_document(connection: Connection, tenant_id: str, document_id: str) -> dict[str, Any] | None:
     return connection.execute(
-        "select * from redsky_ocr.document where workspace_id = %s and id = %s",
-        (workspace_id, document_id),
+        "select * from redsky_ocr.document where tenant_id = %s and id = %s",
+        (tenant_id, document_id),
     ).fetchone()
 
 
 def create_document(
     connection: Connection,
     *,
-    workspace_id: str,
-    attachment_id: str,
-    file_id: str | None,
+    tenant_id: str,
+    source_system: str,
+    source_id: str,
     filename: str,
-    linked_object: str | None,
-    linked_record_id: str | None,
-    uploaded_by_user_id: str | None,
-    uploaded_by_workspace_member_id: str | None,
+    links: list[Link],
+    uploaded_by: str | None,
     no_ai: bool,
+    source_metadata: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], bool]:
     row = connection.execute(
         """
         insert into redsky_ocr.document (
-          id, workspace_id, attachment_id, file_id, filename, linked_object,
-          linked_record_id, uploaded_by_user_id, uploaded_by_workspace_member_id,
-          no_ai, status, status_reason, status_message
-        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'uploaded', %s, %s)
-        on conflict (workspace_id, attachment_id) do nothing
+          id, tenant_id, source_system, source_id, source_metadata, filename,
+          uploaded_by, no_ai, status, status_reason, status_message
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, 'uploaded', %s, %s)
+        on conflict (tenant_id, source_system, source_id) do nothing
         returning *
         """,
         (
             new_id(),
-            workspace_id,
-            attachment_id,
-            file_id,
+            tenant_id,
+            source_system,
+            source_id,
+            Jsonb(source_metadata or {}),
             filename,
-            linked_object,
-            linked_record_id,
-            uploaded_by_user_id,
-            uploaded_by_workspace_member_id,
+            uploaded_by,
             no_ai,
             errors.NO_AI_DOCUMENT if no_ai else None,
             "The file is marked _NOAI; its content is never extracted." if no_ai else None,
         ),
     ).fetchone()
     if row is not None:
+        set_links(connection, str(row["id"]), links)
         return row, True
-    existing = find_document_by_attachment(connection, workspace_id, attachment_id)
+    existing = find_document_by_source(connection, tenant_id, source_system, source_id)
     assert existing is not None
     return existing, False
+
+
+def set_links(connection: Connection, document_id: str, links: list[Link]) -> None:
+    connection.execute("delete from redsky_ocr.document_link where document_id = %s", (document_id,))
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            insert into redsky_ocr.document_link (document_id, system, object, record_id)
+            values (%s, %s, %s, %s) on conflict do nothing
+            """,
+            [(document_id, link.system, link.object, link.record_id) for link in links],
+        )
+
+
+def links_for(connection: Connection, document_ids: list[str]) -> dict[str, list[Link]]:
+    rows = connection.execute(
+        """
+        select document_id::text as document_id, system, object, record_id
+        from redsky_ocr.document_link where document_id = any(%s::uuid[])
+        order by system, object, record_id
+        """,
+        (document_ids,),
+    ).fetchall()
+    found: dict[str, list[Link]] = {document_id: [] for document_id in document_ids}
+    for row in rows:
+        found[row["document_id"]].append(Link(row["system"], row["object"], row["record_id"]))
+    return found
 
 
 def enqueue_extraction(
@@ -81,19 +109,18 @@ def enqueue_extraction(
     *,
     document_id: str,
     requested_engine: str,
-    requested_by_workspace_member_id: str | None,
+    requested_by: str | None,
     max_attempts: int,
 ) -> tuple[dict[str, Any], bool]:
     row = connection.execute(
         """
         insert into redsky_ocr.extraction (
-          id, document_id, requested_engine, status, max_attempts,
-          requested_by_workspace_member_id
+          id, document_id, requested_engine, status, max_attempts, requested_by
         ) values (%s, %s, %s, 'queued', %s, %s)
         on conflict (document_id) where status in ('queued', 'processing') do nothing
         returning *
         """,
-        (new_id(), document_id, requested_engine, max_attempts, requested_by_workspace_member_id),
+        (new_id(), document_id, requested_engine, max_attempts, requested_by),
     ).fetchone()
     created = row is not None
     if row is None:
@@ -245,22 +272,25 @@ def record_file_details(
     connection: Connection,
     document_id: str,
     *,
-    filename: str,
     size_bytes: int,
     sha256: str,
     mime_type: str | None,
-    linked_object: str | None,
-    linked_record_id: str | None,
+    filename: str | None = None,
+    links: list[Link] | None = None,
+    source_metadata: dict[str, Any] | None = None,
 ) -> None:
     connection.execute(
         """
         update redsky_ocr.document
-        set filename = %s, size_bytes = %s, sha256 = %s, mime_type = coalesce(%s, mime_type),
-            linked_object = %s, linked_record_id = %s, updated_at = now()
+        set filename = coalesce(%s, filename), size_bytes = %s, sha256 = %s,
+            mime_type = coalesce(%s, mime_type),
+            source_metadata = source_metadata || %s, updated_at = now()
         where id = %s
         """,
-        (filename, size_bytes, sha256, mime_type, linked_object, linked_record_id, document_id),
+        (filename, size_bytes, sha256, mime_type, Jsonb(source_metadata or {}), document_id),
     )
+    if links is not None:
+        set_links(connection, document_id, links)
 
 
 def complete_extraction(
@@ -438,31 +468,40 @@ def list_chunks(connection: Connection, extraction_id: str) -> list[dict[str, An
 
 def list_documents(
     connection: Connection,
-    workspace_id: str,
+    tenant_id: str,
     *,
-    attachment_id: str | None,
-    linked_object: str | None,
-    linked_record_id: str | None,
-    status: str | None,
-    limit: int,
+    source_system: str | None = None,
+    source_id: str | None = None,
+    link: tuple[str | None, str | None, str | None] = (None, None, None),
+    status: str | None = None,
+    limit: int = 25,
 ) -> list[dict[str, Any]]:
-    conditions = ["workspace_id = %s"]
-    parameters: list[Any] = [workspace_id]
+    conditions = ["document.tenant_id = %s"]
+    parameters: list[Any] = [tenant_id]
     for column, value in (
-        ("attachment_id", attachment_id),
-        ("linked_object", linked_object),
-        ("linked_record_id", linked_record_id),
-        ("status", status),
+        ("document.source_system", source_system),
+        ("document.source_id", source_id),
+        ("document.status", status),
     ):
         if value is not None:
             conditions.append(f"{column} = %s")
             parameters.append(value)
+    link_conditions = []
+    for column, value in zip(("link.system", "link.object", "link.record_id"), link):
+        if value is not None:
+            link_conditions.append(f"{column} = %s")
+            parameters.append(value)
+    if link_conditions:
+        conditions.append(
+            "exists (select 1 from redsky_ocr.document_link as link"
+            f" where link.document_id = document.id and {' and '.join(link_conditions)})"
+        )
     parameters.append(limit)
     return connection.execute(
         f"""
-        select * from redsky_ocr.document
+        select document.* from redsky_ocr.document as document
         where {" and ".join(conditions)}
-        order by created_at desc
+        order by document.created_at desc
         limit %s
         """,
         parameters,
@@ -470,60 +509,131 @@ def list_documents(
 
 
 def search_pages(
-    connection: Connection, workspace_id: str, query: str, limit: int
+    connection: Connection, tenant_id: str, query: str, limit: int
 ) -> list[dict[str, Any]]:
     return connection.execute(
         """
         with matches as (
-          select document.id as document_id, document.attachment_id, document.filename,
-                 page.page_number, page.text,
+          select document.id as document_id, document.source_system, document.source_id,
+                 document.filename, page.page_number, page.text,
                  ts_rank(page.search_vector, query) as rank, query
           from redsky_ocr.page as page
           join redsky_ocr.document as document
             on document.current_extraction_id = page.extraction_id
           cross join websearch_to_tsquery('english', %s) as query
-          where document.workspace_id = %s and page.search_vector @@ query
+          where document.tenant_id = %s and page.search_vector @@ query
           order by rank desc
           limit %s
         )
-        select document_id, attachment_id, filename, page_number, rank,
+        select document_id, source_system, source_id, filename, page_number, rank,
                ts_headline('english', text, query,
                  'MaxFragments=2, MaxWords=30, MinWords=10, StartSel=<<, StopSel=>>') as snippet
         from matches
         order by rank desc
         """,
-        (query, workspace_id, limit),
+        (query, tenant_id, limit),
     ).fetchall()
 
 
-def delete_document(connection: Connection, workspace_id: str, attachment_id: str) -> bool:
-    deleted = connection.execute(
+def delete_document(connection: Connection, tenant_id: str, document_id: str) -> dict[str, Any] | None:
+    return connection.execute(
+        "delete from redsky_ocr.document where tenant_id = %s and id = %s returning *",
+        (tenant_id, document_id),
+    ).fetchone()
+
+
+def delete_document_by_source(
+    connection: Connection, tenant_id: str, source_system: str, source_id: str
+) -> dict[str, Any] | None:
+    return connection.execute(
         """
-        delete from redsky_ocr.document where workspace_id = %s and attachment_id = %s
-        returning id
+        delete from redsky_ocr.document
+        where tenant_id = %s and source_system = %s and source_id = %s
+        returning *
         """,
-        (workspace_id, attachment_id),
+        (tenant_id, source_system, source_id),
     ).fetchone()
-    return deleted is not None
 
 
-def get_sync_cursor(connection: Connection, workspace_id: str) -> str | None:
+def get_sync_cursor(connection: Connection, source_system: str, tenant_id: str) -> str | None:
     row = connection.execute(
-        "select attachments_created_since from redsky_ocr.sync_state where workspace_id = %s",
-        (workspace_id,),
+        """
+        select created_since from redsky_ocr.sync_state
+        where source_system = %s and tenant_id = %s
+        """,
+        (source_system, tenant_id),
     ).fetchone()
-    return row["attachments_created_since"].isoformat() if row else None
+    return row["created_since"].isoformat() if row else None
 
 
-def set_sync_cursor(connection: Connection, workspace_id: str, created_since: str) -> None:
+def set_sync_cursor(connection: Connection, source_system: str, tenant_id: str, created_since: str) -> None:
     connection.execute(
         """
-        insert into redsky_ocr.sync_state (workspace_id, attachments_created_since)
-        values (%s, %s)
-        on conflict (workspace_id) do update
-        set attachments_created_since = excluded.attachments_created_since, updated_at = now()
+        insert into redsky_ocr.sync_state (source_system, tenant_id, created_since)
+        values (%s, %s, %s)
+        on conflict (source_system, tenant_id) do update
+        set created_since = excluded.created_since, updated_at = now()
         """,
-        (workspace_id, created_since),
+        (source_system, tenant_id, created_since),
+    )
+
+
+def add_event(
+    connection: Connection, document: dict[str, Any], event_type: str, extraction_id: str | None = None
+) -> None:
+    event_id = new_id()
+    payload = {
+        "id": event_id,
+        "type": event_type,
+        "occurredAt": connection.execute("select now() as now").fetchone()["now"].isoformat(),
+        "tenantId": document["tenant_id"],
+        "document": {
+            "id": str(document["id"]),
+            "source": {"system": document["source_system"], "id": document["source_id"]},
+            "status": document["status"],
+            "statusReason": document["status_reason"],
+        },
+        "extractionId": extraction_id,
+    }
+    connection.execute(
+        """
+        insert into redsky_ocr.event_outbox (id, tenant_id, document_id, event_type, payload)
+        values (%s, %s, %s, %s, %s)
+        """,
+        (event_id, document["tenant_id"], document["id"], event_type, Jsonb(payload)),
+    )
+
+
+def claim_due_event(connection: Connection) -> dict[str, Any] | None:
+    # Held under the row lock until delivery is recorded in this transaction.
+    return connection.execute(
+        """
+        select * from redsky_ocr.event_outbox
+        where delivered_at is null and abandoned_at is null and next_attempt_at <= now()
+        order by created_at
+        for update skip locked
+        limit 1
+        """
+    ).fetchone()
+
+
+def mark_event_delivered(connection: Connection, event_id: str) -> None:
+    connection.execute(
+        "update redsky_ocr.event_outbox set delivered_at = now(), attempts = attempts + 1 where id = %s",
+        (event_id,),
+    )
+
+
+def reschedule_event(connection: Connection, event_id: str, error: str, max_attempts: int) -> None:
+    connection.execute(
+        """
+        update redsky_ocr.event_outbox
+        set attempts = attempts + 1, last_error = %s,
+            next_attempt_at = now() + make_interval(secs => least(3600, 30 * power(2, attempts))),
+            abandoned_at = case when attempts + 1 >= %s then now() end
+        where id = %s
+        """,
+        (error[:500], max_attempts, event_id),
     )
 
 

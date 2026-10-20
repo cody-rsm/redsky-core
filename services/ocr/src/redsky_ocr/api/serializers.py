@@ -41,27 +41,21 @@ def serialize_extraction(extraction: dict[str, Any] | None) -> dict[str, Any] | 
 
 def serialize_document(
     document: dict[str, Any],
+    links: list[Any],
     latest: dict[str, Any] | None,
     current: dict[str, Any] | None,
 ) -> dict[str, Any]:
     return {
         "id": _id(document["id"]),
-        "workspaceId": _id(document["workspace_id"]),
-        "attachmentId": _id(document["attachment_id"]),
-        "fileId": _id(document["file_id"]),
+        "tenantId": document["tenant_id"],
+        "source": {"system": document["source_system"], "id": document["source_id"]},
+        "sourceMetadata": document["source_metadata"],
         "filename": document["filename"],
         "mimeType": document["mime_type"],
         "sizeBytes": document["size_bytes"],
         "sha256": document["sha256"],
-        "linkedRecord": (
-            {"object": document["linked_object"], "id": _id(document["linked_record_id"])}
-            if document["linked_object"]
-            else None
-        ),
-        "uploadedBy": {
-            "userId": _id(document["uploaded_by_user_id"]),
-            "workspaceMemberId": _id(document["uploaded_by_workspace_member_id"]),
-        },
+        "links": [{"system": link.system, "object": link.object, "id": link.record_id} for link in links],
+        "uploadedBy": document["uploaded_by"],
         "noAi": document["no_ai"],
         "status": document["status"],
         "statusReason": document["status_reason"],

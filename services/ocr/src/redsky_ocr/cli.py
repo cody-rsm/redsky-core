@@ -7,6 +7,7 @@ import threading
 
 from redsky_ocr import policy, repository
 from redsky_ocr.provision import provision
+from redsky_ocr.sources import TWENTY
 from redsky_ocr.config import get_settings
 from redsky_ocr.db import create_pool, migrate
 from redsky_ocr.logs import configure_logging
@@ -27,14 +28,20 @@ def default_host() -> str:
         return "0.0.0.0"
 
 
-def start_workers(settings, stop: threading.Event) -> list[threading.Thread]:
-    pool = create_pool(settings.database_url.get_secret_value(), max_size=settings.worker_concurrency + 2)
-    twenty = TwentyClient(
+def twenty_client(settings) -> TwentyClient | None:
+    if not settings.twenty_url:
+        return None
+    return TwentyClient(
         settings.twenty_url,
         settings.twenty_timeout_seconds,
         settings.file_download_hosts,
         public_url=settings.twenty_public_url,
     )
+
+
+def start_workers(settings, stop: threading.Event) -> list[threading.Thread]:
+    pool = create_pool(settings.database_url.get_secret_value(), max_size=settings.worker_concurrency + 2)
+    twenty = twenty_client(settings)
     threads = []
     # Threads only orchestrate: each job runs in its own sandboxed process.
     for index in range(settings.worker_concurrency):
@@ -46,15 +53,15 @@ def start_workers(settings, stop: threading.Event) -> list[threading.Thread]:
 
 
 def backfill(settings, since: str | None) -> None:
-    if not since or settings.twenty_api_key is None:
-        raise SystemExit("backfill needs --since and REDSKY_OCR_TWENTY_API_KEY")
-    twenty = TwentyClient(settings.twenty_url, settings.twenty_timeout_seconds)
+    twenty = twenty_client(settings)
+    if not since or twenty is None or settings.twenty_api_key is None:
+        raise SystemExit("backfill needs --since, REDSKY_OCR_TWENTY_URL and REDSKY_OCR_TWENTY_API_KEY")
     workspace_id = twenty.current_workspace_id(settings.twenty_api_key.get_secret_value())
     pool = create_pool(settings.database_url.get_secret_value(), max_size=1)
     with pool.connection() as connection:
-        repository.set_sync_cursor(connection, workspace_id, since)
+        repository.set_sync_cursor(connection, TWENTY, settings.twenty_tenant(workspace_id), since)
     pool.close()
-    print(f"The next sweep queues attachments created since {since}.")
+    print(f"The next sweep queues Twenty attachments created since {since}.")
 
 
 def main() -> None:
@@ -63,7 +70,7 @@ def main() -> None:
         "command",
         choices=["serve", "api", "worker", "migrate", "backfill"],
         help="serve: API and worker in one process; api or worker: one role only; "
-        "backfill: queue attachments created since --since on the next sweep",
+        "backfill: queue Twenty attachments created since --since on the next sweep",
     )
     parser.add_argument("--since", help="backfill: ISO date or timestamp, e.g. 2026-01-01")
     arguments = parser.parse_args()

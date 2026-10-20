@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 
 from sample_documents import generate  # noqa: E402
 
-from redsky_ocr.twenty import TwentyClient  # noqa: E402
 
 # Checks redsky-ocr against a real Twenty: run it against
 # docker-compose.dev.yml after every Twenty upgrade. It creates synthetic
@@ -168,9 +167,32 @@ def bootstrap(twenty: Twenty, arguments: argparse.Namespace) -> None:
         )
     Path(".e2e-api-key").write_text(api_key)
     print("Twenty is ready. Start redsky-ocr with:")
-    print("  REDSKY_OCR_TWENTY_API_KEY=$(cat .e2e-api-key)")
+    print("  REDSKY_OCR_TWENTY_API_KEY=$(cat .e2e-api-key) REDSKY_OCR_ACCEPT_TWENTY_TOKENS=true")
     print(f"  REDSKY_OCR_TWENTY_WEBHOOK_SECRET=<the --webhook-secret you passed>")
     print("then run: python scripts/e2e_twenty.py run")
+
+
+def upload_attachment(twenty_url: str, token: str, filename: str, data: bytes, company_id: str) -> str:
+    # What the Files tab does: create an upload target, PUT the bytes,
+    # complete it, then create the attachment record.
+    twenty = Twenty(twenty_url)
+    target = twenty.gql(
+        """mutation($f: String!, $s: Float!) {
+          createFileUpload(filename: $f, size: $s, fileFolder: FilesField,
+            fieldMetadataUniversalIdentifier: "20202020-15db-460e-8166-c7b5d87ad4be")
+          { fileId uploadUrl contentType } }""",
+        {"f": filename, "s": len(data)},
+        token=token,
+    )["createFileUpload"]
+    httpx.put(target["uploadUrl"], content=data, headers={"Content-Type": target["contentType"]}).raise_for_status()
+    twenty.gql("mutation($id: String!){ completeFileUpload(fileId: $id) { id } }", {"id": target["fileId"]}, token=token)
+    created = httpx.post(
+        f"{twenty_url}/rest/attachments",
+        json={"name": filename, "targetCompanyId": company_id, "file": [{"fileId": target["fileId"], "label": filename}]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    created.raise_for_status()
+    return created.json()["data"]["createAttachment"]["id"]
 
 
 def run(twenty: Twenty, arguments: argparse.Namespace) -> list[str]:
@@ -181,42 +203,30 @@ def run(twenty: Twenty, arguments: argparse.Namespace) -> list[str]:
     analyst_headers = {"Authorization": f"Bearer {analyst}"}
     if not httpx.get(f"{arguments.ocr_url}/ready").is_success:
         raise SystemExit("redsky-ocr is not ready")
+    workspace_id = twenty.gql("{ currentWorkspace { id } }", token=admin)["currentWorkspace"]["id"]
     company = httpx.post(
         f"{arguments.twenty_url}/rest/companies", json={"name": "Northwind Test Holdings"}, headers=headers
     ).json()["data"]["createCompany"]["id"]
     samples = generate(Path(".e2e-samples"), include_bad=False)
-    client = TwentyClient(arguments.twenty_url, 30)
 
     print("Webhook ingestion")
-    attachment = client.create_attachment(
-        admin, filename="scanned.pdf", data=samples["scanned.pdf"].path.read_bytes(), linked_object="company", linked_record_id=company
+    attachment = upload_attachment(
+        arguments.twenty_url, admin, "scanned.pdf", samples["scanned.pdf"].path.read_bytes(), company
     )
     document = None
     for _ in range(90):
-        found = httpx.get(f"{arguments.ocr_url}/api/v1/documents", params={"attachmentId": attachment}, headers=headers).json()["documents"]
+        found = httpx.get(
+            f"{arguments.ocr_url}/api/v1/documents", params={"sourceId": attachment}, headers=headers
+        ).json()["documents"]
         if found and found[0]["status"] not in ("queued", "processing"):
             document = found[0]
             break
         time.sleep(1)
     check("an attachment uploaded in Twenty is extracted automatically", bool(document) and document["status"] == "completed", failures)
 
-    print("Upload through redsky-ocr")
-    uploaded = httpx.post(
-        f"{arguments.ocr_url}/api/v1/documents",
-        headers=headers,
-        files={"file": ("board-update.docx", samples["board-update.docx"].path.read_bytes())},
-        data={"linkedObject": "company", "linkedRecordId": company},
-        timeout=60,
-    )
-    check(
-        "upload creates a Twenty attachment and queues it",
-        uploaded.status_code == 202 and client.can_read_attachment(admin, uploaded.json()["attachmentId"]),
-        failures,
-    )
-
     if document:
-        print("Access control")
         url = f"{arguments.ocr_url}/api/v1/documents/{document['id']}"
+        print("Access control (Twenty tokens)")
         check("the uploader can read the text", httpx.get(f"{url}/content", headers=headers).status_code == 200, failures)
         check("a user without file access gets 404", httpx.get(url, headers=analyst_headers).status_code == 404, failures)
         check(
@@ -225,6 +235,17 @@ def run(twenty: Twenty, arguments: argparse.Namespace) -> list[str]:
             failures,
         )
         check("an invalid token gets 401", httpx.get(url, headers={"Authorization": "Bearer invalid"}).status_code == 401, failures)
+
+        if arguments.service_token:
+            print("RedSky API (service token)")
+            gateway = {
+                "Authorization": f"Bearer {arguments.service_token}",
+                "X-RedSky-Tenant-Id": workspace_id,
+                "X-RedSky-User-Id": "e2e-check",
+            }
+            check("the RedSky API reads the same document", httpx.get(f"{url}/content", headers=gateway).status_code == 200, failures)
+            other = {**gateway, "X-RedSky-Tenant-Id": "another-tenant"}
+            check("another tenant gets 404", httpx.get(url, headers=other).status_code == 404, failures)
 
         print("Deletion")
         httpx.delete(f"{arguments.twenty_url}/rest/attachments/{attachment}", headers=headers)
@@ -240,6 +261,7 @@ def main() -> None:
     parser.add_argument("--ocr-url", default="http://localhost:8080")
     parser.add_argument("--webhook-url", default="http://redsky-ocr:8080/api/v1/webhooks/twenty")
     parser.add_argument("--webhook-secret", help="bootstrap: the REDSKY_OCR_TWENTY_WEBHOOK_SECRET redsky-ocr will use")
+    parser.add_argument("--service-token", help="run: one of REDSKY_OCR_SERVICE_TOKENS, to check calls from the RedSky API")
     arguments = parser.parse_args()
     twenty = Twenty(arguments.twenty_url)
     if arguments.command == "bootstrap":

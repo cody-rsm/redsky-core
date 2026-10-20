@@ -1,22 +1,20 @@
--- Originals stay in Twenty (attachment files in its bucket). This schema holds
--- only what the service derives from them, so a document's footprint here can
--- be purged in one delete when its attachment goes away.
+-- Originals live with whoever owns them (the RedSky documents bucket, or
+-- Twenty for attachments). This schema holds only what the service derives
+-- from them, so a document's footprint here can be purged in one delete.
 
 create table redsky_ocr.document (
   id uuid primary key,
-  workspace_id uuid not null,
-  attachment_id uuid not null,
-  file_id uuid,
+  tenant_id text not null,
+  -- 'storage': a key in the RedSky documents bucket. 'twenty': an attachment.
+  source_system text not null check (source_system in ('storage', 'twenty')),
+  source_id text not null,
+  -- Source-specific details, for example Twenty's file id.
+  source_metadata jsonb not null default '{}',
   filename text not null,
   mime_type text,
   size_bytes bigint,
   sha256 text,
-  -- The record the attachment hangs off, copied from Twenty for filtering.
-  -- Access is always re-checked against Twenty, never decided from these.
-  linked_object text,
-  linked_record_id uuid,
-  uploaded_by_user_id uuid,
-  uploaded_by_workspace_member_id uuid,
+  uploaded_by text,
   no_ai boolean not null default false,
   status text not null check (
     status in ('uploaded', 'queued', 'processing', 'completed', 'failed', 'needs_review')
@@ -28,10 +26,21 @@ create table redsky_ocr.document (
   updated_at timestamptz not null default now()
 );
 
-create unique index document_attachment_key
-  on redsky_ocr.document (workspace_id, attachment_id);
-create index document_linked_record
-  on redsky_ocr.document (workspace_id, linked_object, linked_record_id);
+create unique index document_source_key
+  on redsky_ocr.document (tenant_id, source_system, source_id);
+
+-- The records a document belongs to, named by the system that owns each
+-- record ('twenty' today; RedSky's own services as areas move over). Used
+-- for filtering only: access is decided by the caller, never from these.
+create table redsky_ocr.document_link (
+  document_id uuid not null references redsky_ocr.document (id) on delete cascade,
+  system text not null,
+  object text not null,
+  record_id text not null,
+  primary key (document_id, system, object, record_id)
+);
+
+create index document_link_record on redsky_ocr.document_link (system, object, record_id);
 
 create table redsky_ocr.extraction (
   id uuid primary key,
@@ -48,7 +57,7 @@ create table redsky_ocr.extraction (
   locked_by text,
   locked_at timestamptz,
   heartbeat_at timestamptz,
-  requested_by_workspace_member_id uuid,
+  requested_by text,
   routing jsonb,
   quality jsonb,
   page_count integer,
@@ -122,3 +131,34 @@ create table redsky_ocr.extraction_artifact (
   extraction_id uuid primary key references redsky_ocr.extraction (id) on delete cascade,
   docling_json_gzip bytea not null
 );
+
+-- How far the Twenty sweep has read: it catches attachments whose webhook
+-- never arrived (Twenty does not retry webhooks and rate-limits them).
+create table redsky_ocr.sync_state (
+  source_system text not null,
+  tenant_id text not null,
+  created_since timestamptz not null,
+  updated_at timestamptz not null default now(),
+  primary key (source_system, tenant_id)
+);
+
+-- Events for the RedSky API, written in the same transaction as the change
+-- they describe and delivered at least once. No foreign key: an event about
+-- a deleted document must survive the delete.
+create table redsky_ocr.event_outbox (
+  id uuid primary key,
+  tenant_id text not null,
+  document_id uuid not null,
+  event_type text not null,
+  payload jsonb not null,
+  attempts integer not null default 0,
+  next_attempt_at timestamptz not null default now(),
+  delivered_at timestamptz,
+  abandoned_at timestamptz,
+  last_error text,
+  created_at timestamptz not null default now()
+);
+
+create index event_outbox_due
+  on redsky_ocr.event_outbox (next_attempt_at)
+  where delivered_at is null and abandoned_at is null;
