@@ -70,6 +70,11 @@ export async function handleError(error: unknown, request: NextRequest, requestI
     return errorResponse(403, 'forbidden', 'You do not have access to this');
   }
   if (error instanceof DatabaseNotConfiguredError) return errorResponse(503, 'unavailable', 'RedSky is not fully configured yet');
+  // The browser went away mid-request (navigation, closed tab); nothing failed on our side.
+  if (request.signal.aborted) {
+    logger.info('Client closed the request', { requestId, path: request.nextUrl.pathname });
+    return errorResponse(499, 'client_closed', 'Request was cancelled');
+  }
   logger.error('Unhandled API error', { requestId, path: request.nextUrl.pathname, method: request.method, error });
   return errorResponse(500, 'internal_error', 'Something went wrong. Please try again.', { requestId });
 }

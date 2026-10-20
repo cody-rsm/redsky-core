@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: redsky
+          POSTGRES_PASSWORD: redsky_ci
+          POSTGRES_DB: redsky_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U redsky" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      REDSKY_DATABASE_URL: postgres://redsky:redsky_ci@localhost:5432/redsky_ci
+      REDSKY_TEST_DATABASE_URL: postgres://redsky:redsky_ci@localhost:5432/redsky_ci
+      REDSKY_TEST_TWENTY_DECOY_URL: postgres://redsky:redsky_ci@localhost:5432/twenty_decoy
+      REDSKY_APP_URL: http://localhost:3000
+      REDSKY_DATA_MODE: demo
+      AUTH_DEV_ENABLED: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Prepare databases (RedSky + a decoy with Twenty's schemas)
+        run: |
+          PGPASSWORD=redsky_ci psql -h localhost -U redsky -d redsky_ci -c "create database twenty_decoy"
+          PGPASSWORD=redsky_ci psql -h localhost -U redsky -d twenty_decoy -c "create schema core; create schema metadata;"
+          npm run db:migrate
+          if REDSKY_DATABASE_URL=$REDSKY_TEST_TWENTY_DECOY_URL npm run db:migrate; then echo "Guard failed to refuse Twenty's database"; exit 1; fi
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

@@ -1,0 +1,25 @@
+# Keep secrets, local data and build output out of the image build context.
+.git
+.github
+.next
+node_modules
+dist
+coverage
+playwright-report
+test-results
+blob-report
+.env
+.env.*
+!.env.example
+*.pdf
+*.pem
+*.key
+.data
+uploads
+prototype
+docs
+tests
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+.dockerignore

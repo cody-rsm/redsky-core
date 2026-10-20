@@ -23,13 +23,13 @@ Browser (React 19 client components, TanStack Query, Zustand UI store)
    │  fetch /api/*  (same-origin, session cookie, Origin-checked mutations)
 Next.js 16 App Router (Node runtime)
    ├─ proxy.ts                      CSP nonce, security headers, optimistic auth redirect
-   ├─ app/(auth|onboarding|workspace) server components: session check, bootstrap data
+   ├─ app/login · app/onboarding/[step] · app/(workspace)/*   server components: session check, bootstrap data
    ├─ app/api/*                     route handlers → application services
    └─ src/server
         ├─ auth/        Entra ID (OIDC + PKCE, openid-client) · dev-only auth · sessions
-        ├─ security/    access policy (RBAC + object-level), audit log, crypto, rate limit, origin check
-        ├─ services/    profile, preferences, onboarding, tasks, workstyle, dashboard, AI, search
-        ├─ repositories/ Drizzle queries (RedSky DB only)
+        ├─ security/    access policy (RBAC + object-level), audit log, crypto
+        ├─ http/        route wrapper: Origin check, session, rate limit, error mapping
+        ├─ services/    profile, preferences, onboarding, tasks, workstyle, workspace, AI, confirm — Drizzle queries live here (RedSky DB only)
         ├─ data/        WorkspaceDataProvider → demo provider | production provider
         ├─ integrations/ CRM adapter interface → Twenty REST adapter (disabled until configured)
         └─ ai/          model provider (Anthropic | simulated) · prompts · context retrieval · tools

@@ -188,7 +188,7 @@ function AiPanelBody() {
         <div className="faint" style={{ fontSize: 11, marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start', lineHeight: 1.4 }}>
           <Icon name="lock" size="xs" style={{ marginTop: 1 }} />
           <span>
-            Uses only information you’re authorized to access.{simulated ? ' Responses here are simulated;' : ''} changes to records always ask for confirmation.
+            Uses only information you’re authorized to access. {simulated ? 'Responses here are simulated; changes' : 'Changes'} to records always ask for confirmation.
           </span>
         </div>
       </footer>
