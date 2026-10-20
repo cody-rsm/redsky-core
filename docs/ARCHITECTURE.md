@@ -78,7 +78,7 @@ tests/unit, tests/e2e       Vitest and Playwright suites
   3. Implement it in both providers.
   4. Create `components/dashboard/widgets/<name>-widget.tsx` using `WidgetFrame` and `WidgetBody`.
   5. Register it in `widgets/index.tsx`.
-- **A connector.**
+- **A connector.** For market and research data (Harmonic, PitchBook, AlphaSense), follow the rules in [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md): enrichment only, explicit "Add to CRM", licence check first.
   1. Add it to `features/integrations/catalog.ts`.
   2. Implement an adapter under `server/integrations/<name>/` behind an interface with normalized models, as `crm/` does.
   3. Switch the relevant production-provider widget from `not_connected` to real data when the adapter is configured.
@@ -93,6 +93,8 @@ tests/unit, tests/e2e       Vitest and Playwright suites
 
 ## Twenty boundary
 
+Twenty is the CRM's system of record and RedSky is the only staff-facing application ([`DECISIONS.md`](DECISIONS.md) 2–3). The plan and roadmap are in [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md).
+
 The UI never sees Twenty shapes. `server/integrations/crm/types.ts` defines `CrmContact`, `CrmCompany` and `CrmOpportunity`. `twenty-adapter.ts`:
 
 - maps Twenty v2.44 REST records (the `rsm-crm` fork) into those types with Zod;
@@ -101,3 +103,5 @@ The UI never sees Twenty shapes. `server/integrations/crm/types.ts` defines `Crm
 - has a typed `CrmError`.
 
 It is read-only in this release, and inactive unless `TWENTY_API_URL` and `TWENTY_API_KEY` are set.
+
+Planned writes (roadmap step 2) extend `CrmAdapter` with create and update methods. Each write is a structured action executed by `services/confirm-service.ts` after the confirmation dialog, with a server-side authorization check, duplicate checks and an audit entry, like AI-proposed actions today. RedSky keeps no copy of CRM records in `redsky-postgres`.

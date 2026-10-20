@@ -1,6 +1,6 @@
 # RedSky — Implementation Plan & Architecture
 
-Status: first release (onboarding + home). Source of truth for UI/UX: `prototype/` (the approved Claude Design package — `prototype/docs/SPEC.md`, `prototype/source/Main.dc.html`, `prototype/docs/screenshots/`).
+Status: first release (onboarding + home), deployed at `redsky.rsmcapital.com`. Later decisions are in [`DECISIONS.md`](DECISIONS.md); the CRM plan is in [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md). Source of truth for UI/UX: `prototype/` (the approved Claude Design package — `prototype/docs/SPEC.md`, `prototype/source/Main.dc.html`, `prototype/docs/screenshots/`).
 
 ## 1. Prototype audit
 
@@ -69,4 +69,4 @@ Twenty CRM (separate Railway service) — reached only via authenticated server-
 | Twenty API URL + a dedicated API key with a scoped role | CRM-backed People/records |
 | Official connector logos + brand-use permission | 9 monogram connectors |
 | Legal review of Workstyle consent text and retention; TTI parsing licence | Workstyle in production |
-| Naming: the Twenty deployment is itself branded "RedSky" (emails, tab title) | Avoid two products with the same name |
+| Naming: the Twenty deployment is itself branded "RedSky" (emails, tab title) | Decided 2026-10-20: RedSky is the only staff-facing app; rename Twenty's branding for administrators ([`DECISIONS.md`](DECISIONS.md) 3) |

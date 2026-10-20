@@ -4,7 +4,7 @@ RedSky is added to the **existing** Railway project as two new services:
 
 | New service | Source | Role |
 |---|---|---|
-| `redsky-web` | GitHub `cody-rsm/RedSky`, branch `main` (`staging` for a staging environment), root `Dockerfile` | The Next.js app (UI + API). |
+| `redsky-web` | GitHub `cody-rsm/redsky-core`, branch `main` (`staging` for a staging environment), root `Dockerfile` | The Next.js app (UI + API). |
 | `redsky-postgres` | Railway PostgreSQL | RedSky's own data: profiles, onboarding, preferences, layouts, Workstyle, tasks, AI conversations, audit log. |
 
 `twenty-server`, `twenty-worker`, `Postgres`, `Redis` and `Bucket` are **not changed** by any step below. RedSky never connects to Twenty's `Postgres`. It reaches Twenty only through Twenty's REST API (step 10), and only once you add credentials.
@@ -18,13 +18,13 @@ RedSky is added to the **existing** Railway project as two new services:
 > - `node dist/migrate.mjs` initializes an empty database, is safe to re-run, and **refuses a database containing Twenty's schemas** (exit code 2).
 > - Development sign-in returns 404 in the production image.
 >
-> **Not verified:** the Railway-specific settings below. Railway was not reachable from the build environment, so they come from Railway's documentation and from `rsm-crm/rsm/deploy/railway/README.md`.
+> **Used in production:** these steps were followed for the production environment on 2026-10-20 (services, custom domain, Entra sign-in). See the checklist at the end for what is done and what remains.
 
 ---
 
 ## 1. Inspect the project and prepare the repository
 
-1. Clone `cody-rsm/RedSky` and confirm the default branch is `main`. GitHub → repository → **Settings → General → Default branch**.
+1. Clone `cody-rsm/redsky-core` and confirm the default branch is `main`. GitHub → repository → **Settings → General → Default branch**.
 2. Locally, run the checks that CI runs:
    ```bash
    npm ci
@@ -49,7 +49,7 @@ RedSky is added to the **existing** Railway project as two new services:
 ## 3. Add `redsky-web` to the existing project
 
 1. Open the Railway dashboard → the existing project (the one with `twenty-server`) → the environment you are deploying to.
-2. Click **+ New → GitHub Repo → `cody-rsm/RedSky`**. If the repository is missing, grant the Railway GitHub app access to it under **Configure GitHub App**.
+2. Click **+ New → GitHub Repo → `cody-rsm/redsky-core`**. If the repository is missing, grant the Railway GitHub app access to it under **Configure GitHub App**.
 3. Rename the new service to `redsky-web`: open the service → **Settings → Service name**.
 4. Railway starts a first build immediately. It will fail its health check until steps 4–6 are done. That is harmless: the service has no public domain yet. You can also open **Deployments** and remove the deployment.
 5. Under **Settings → Source**:
@@ -62,10 +62,12 @@ RedSky is added to the **existing** Railway project as two new services:
 2. Do **not** add public networking to it. Leave **Settings → Networking → Public Networking** off.
 3. Confirm the service has a volume. Railway attaches one to its Postgres template.
 4. Only `redsky-web` will reference this database (next step). Do not reference `redsky-postgres` from the Twenty services, and do not reference Twenty's `Postgres` from `redsky-web`.
+5. Don't rename Twenty's `Postgres`, `Redis` or `Bucket`. Twenty's variables reference them by name.
+6. RedSky needs no Redis or Bucket service ([`DECISIONS.md`](DECISIONS.md) 8).
 
 ## 5. Set `redsky-web` variables
 
-Open `redsky-web` → **Variables → Raw Editor** and paste the following, then fill the blanks. Generate the secrets on your own machine and store them in RSM's password manager **before** pasting:
+Open `redsky-web` → **Variables → Raw Editor** and paste the following, then fill the blanks. Use the **service's** variables, not the project's Shared Variables: shared values are visible to Twenty's services too ([`DECISIONS.md`](DECISIONS.md) 7). Generate the secrets on your own machine and store them in RSM's password manager **before** pasting:
 
 ```bash
 openssl rand -base64 48    # REDSKY_SESSION_SECRET
@@ -90,11 +92,12 @@ LOG_LEVEL=info
 ```
 
 - `REDSKY_DATABASE_URL` uses the **private** URL that Railway's reference variable resolves to. Check the reference shows a resolved value (not red) in the Variables list.
-- `REDSKY_APP_URL` must match the domain from step 8. The reference fills in once a domain exists. With a custom domain later, set it explicitly (`https://redsky.example.com`).
+- `REDSKY_APP_URL` must match the address people use. The reference fills in once a Railway domain exists. With the custom domain (step 8), set it explicitly to `https://redsky.rsmcapital.com`, with no trailing slash.
 - `PORT=3000` pins the port the server listens on, so the domain in step 8 can target it. Without it, Railway injects its own `PORT`, and the domain's target port has to match whatever that is.
 - Leave the three `AUTH_ENTRA_*` values empty for now. The Entra registration needs RedSky's domain, which you generate in step 8.
 - Until all four auth values (tenant, client ID, secret, session secret) are set, RedSky shows "Sign-in isn't configured" and every API returns 401.
 - **Never set** `AUTH_DEV_ENABLED` on Railway. It is ignored by the production image anyway.
+- After saving `AUTH_ENTRA_CLIENT_SECRET`, `REDSKY_SESSION_SECRET` and `REDSKY_ENCRYPTION_KEY`, **seal** them (variable **⋯ → Seal**) if your plan offers it. Sealed values reach the app but can't be viewed again, so keep the originals in the password manager.
 - **RedSky AI** (optional, after RSM approves a provider): set `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY=<key>`. Without them, production shows "RedSky AI isn't configured" and sends nothing anywhere.
 - **Demo environment** (optional, separate environment only): `REDSKY_DATA_MODE=demo` shows labelled sample data. Never use it where real RSM data is present.
 
@@ -133,26 +136,73 @@ Verify:
 1. `redsky-web` → **Deployments → latest → Deploy logs** (pre-deploy section) shows `"message":"Migrations complete"`.
 2. Optionally, open `redsky-postgres` → **Data**. You should see the `redsky` schema with tables such as `users`, `employee_profiles`, `onboarding_progress`, `user_preferences` and `audit_events`.
 
-## 8. Generate a domain, then turn on sign-in
+## 8. Domain, custom domain, then sign-in
 
-RedSky fails closed: without the Entra variables, the login page says sign-in isn't configured and every API returns 401. It is therefore safe to give it a domain before sign-in works. The Entra registration needs that domain anyway.
+RedSky fails closed: without the Entra variables, the login page says sign-in isn't configured and every API returns 401. It is therefore safe to give it an address before sign-in works, and the Entra registration needs that address anyway.
 
-1. Once the deployment is healthy: `redsky-web` → **Settings → Networking → Generate Domain**, target port `3000`.
+### 8a. Railway domain
+1. Once the deployment is healthy: `redsky-web` → **Settings → Networking → Generate Domain**, target port **`3000`**. Railway's form defaults to `8080`, which returns errors because the app listens on `3000`. Check an existing domain's port with its pencil icon.
 2. Open `https://<domain>/api/health`. Expect `"database":"ok"` and `"auth":"unconfigured"`. Open `https://<domain>/`; it should show the locked sign-in page.
-3. **Register RedSky in Entra** (Microsoft Entra admin center → **App registrations → New registration**):
-   - Name `RedSky`; **Accounts in this organizational directory only** (single tenant).
-   - Redirect URI: platform **Web**, `https://<domain>/api/auth/entra/callback`.
-   - **Certificates & secrets → New client secret.** Copy the secret *value* immediately into the password manager.
-   - **API permissions:** keep Microsoft Graph delegated `User.Read` (used once at sign-in to prefill the profile).
-   - Optional: **App roles → Create app role** `RedSky.Admin` (allowed member types: Users/Groups), then assign administrators under **Enterprise applications → RedSky → Users and groups**.
-   - From **Overview**, copy the **Directory (tenant) ID** and **Application (client) ID**.
-4. In `redsky-web` → **Variables**, fill `AUTH_ENTRA_TENANT_ID`, `AUTH_ENTRA_CLIENT_ID`, `AUTH_ENTRA_CLIENT_SECRET`, then deploy the staged changes.
-5. `/api/health` should now show `"auth":"configured"`. If it still reads `unconfigured`, check the deploy logs: configuration problems are logged without their values.
+
+### 8b. Custom domain `redsky.rsmcapital.com` (Cloudflare)
+1. `redsky-web` → **Settings → Networking → Custom Domain**: `redsky.rsmcapital.com`, port **`3000`**. Railway shows two records: a `CNAME` for `redsky` and a `TXT` for `_railway-verify.redsky`.
+2. Skip Railway's **Connect** (one-click Cloudflare). It grants Railway ongoing edit access to the `rsmcapital.com` zone, which also carries the company email records. Instead, in Cloudflare → `rsmcapital.com` → **DNS → Records → Add record**:
+
+   | Type | Name | Target / content | Proxy |
+   |---|---|---|---|
+   | `CNAME` | `redsky` | the target Railway shows (`<id>.up.railway.app`) | **DNS only** (grey cloud) |
+   | `TXT` | `_railway-verify.redsky` | the full `railway-verify=…` value (use Railway's copy button) | n/a |
+
+   Type only the short names; Cloudflare adds `.rsmcapital.com`. **DNS only** lets Railway issue the certificate, and leaves Cloudflare's zone-wide SSL mode untouched.
+3. Wait until Railway shows the domain as verified (minutes, sometimes up to an hour). To check from a terminal:
+   ```bash
+   dig +short CNAME redsky.rsmcapital.com
+   dig +short TXT _railway-verify.redsky.rsmcapital.com
+   ```
+4. Set `REDSKY_APP_URL=https://redsky.rsmcapital.com` and deploy. From then on, requests that save data are accepted only from that address. The Railway domain is useful only for health checks, and can be removed.
+
+### 8c. Register RedSky in Microsoft Entra ID
+Microsoft Entra admin center → **App registrations → New registration**:
+
+1. Name `RedSky`.
+2. **Supported account types:** single tenant ("this organizational directory only").
+   - The tenant is shown by its directory name (RSM's is *Natural State Renewables*).
+   - Confirm it's the directory that holds the `@rsmcapital.com` accounts: **Overview**, or **Settings → Domain names**.
+3. **Redirect URI:** platform **Web** (not SPA or public client: RedSky's server completes sign-in with a client secret), `https://redsky.rsmcapital.com/api/auth/entra/callback`.
+4. **Certificates & secrets → New client secret.**
+   - Copy the **Value** column immediately (it's shown once). The **Secret ID** is not used anywhere.
+   - Note the expiry in a calendar: sign-in stops working when the secret expires.
+5. **API permissions:** keep Microsoft Graph delegated `User.Read`.
+6. **Grant admin consent for <tenant>.**
+   - This needs the Global Administrator, Privileged Role Administrator or Cloud Application Administrator role.
+   - Without it, staff see **"Need admin approval"** at sign-in, because the tenant doesn't let users approve apps themselves.
+   - Users can't consent just for themselves either. Alternatively, an admin can follow "Have an admin account?" on that screen and tick **Consent on behalf of your organization**.
+7. **Restrict who can sign in** (recommended; essential if the tenant holds people who shouldn't use RedSky):
+   - **Enterprise applications → RedSky → Properties → Assignment required? → Yes**.
+   - Then add people or groups under **Users and groups**. Unassigned people get a "not assigned" error.
+8. Optional:
+   - **App roles → Create app role** `RedSky.Admin` (member type Users/Groups), assigned to administrators.
+   - **Branding & properties → Publisher domain** `rsmcapital.com`, so the Microsoft screens stop showing the tenant's other domain.
+   - **Enterprise applications → Consent and permissions → Admin consent settings → Users can request admin consent → Yes**. The "Need admin approval" screen then offers **Request approval**.
+9. From **Overview**, copy the **Directory (tenant) ID** and the **Application (client) ID**.
+
+### 8d. Turn on sign-in
+1. In `redsky-web` → **Variables**:
+
+   | From Entra | Variable |
+   |---|---|
+   | Directory (tenant) ID | `AUTH_ENTRA_TENANT_ID` |
+   | Application (client) ID | `AUTH_ENTRA_CLIENT_ID` |
+   | Client secret **Value** | `AUTH_ENTRA_CLIENT_SECRET` |
+
+   Then deploy.
+2. `/api/health` shows `"auth":"configured"`. If it still reads `unconfigured`, the deploy logs contain a "Configuration incomplete" line naming the missing or invalid variable (names only, never values).
 
 ## 9. Test the deployment
 
 - [ ] `/api/health` returns 200 with `database: ok`, `auth: configured`, `mode: production`.
 - [ ] Opening `/` redirects to `/login`. **Sign in with Microsoft** works for an RSM account; a non-RSM account is rejected.
+- [ ] An Entra user who isn't assigned to RedSky (when assignment is required) is refused.
 - [ ] Onboarding:
   - Fill the profile.
   - Refresh mid-way; you land on the same step with your answers.
@@ -171,9 +221,13 @@ RedSky fails closed: without the Entra variables, the login page says sign-in is
 - [ ] Settings › Profile › **Sign out** ends the session.
 - [ ] Twenty is unaffected: `twenty-server` deployments and its `/healthz` are unchanged.
 
-## 10. Optional: Twenty API integration
+## 10. Optional: Twenty API integration (read-only)
 
-Do this only after RSM provides a verified endpoint and credentials. Note `rsm-crm`'s Railway README: the Twenty deployment is currently **staging / pre-production**, with no real client data.
+This is roadmap step 1 of [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md): RedSky in front, Twenty as the system of record behind it.
+
+- **Staging data only.** Do this only once RSM has verified the endpoint and credentials. Per `rsm-crm`'s Railway README, the Twenty deployment is currently **staging / pre-production**, with no real client data.
+- **Don't roll the CRM out to staff yet.** Wait until RedSky can create and edit records and show the timeline ([`DECISIONS.md`](DECISIONS.md) 4).
+- **The key is workspace-wide.** Everyone signed into RedSky sees everything the API key can see. Keep it on staging data until per-person access exists.
 
 1. In Twenty: **Settings → APIs & Webhooks → Create API key**. Give it a dedicated, read-only role if roles are configured. Store it in the password manager.
 2. Find Twenty's private address: `twenty-server` → **Settings → Networking → Private Networking** shows `twenty-server.railway.internal`. Find its port from `twenty-server` → **Variables** (`NODE_PORT`; `rsm-crm` documents `PORT=3000`). Verify both; don't assume them.
@@ -184,7 +238,7 @@ Do this only after RSM provides a verified endpoint and credentials. Note `rsm-c
    ```
    Alternatively, use Twenty's public HTTPS domain.
 4. Redeploy `redsky-web`.
-5. Verify: **People** lists CRM contacts, and record previews open for contacts and companies. The adapter is read-only. Nothing in RedSky writes to Twenty.
+5. Verify: **People** lists CRM contacts, and record previews open for contacts and companies. The adapter is read-only; nothing in RedSky writes to Twenty until roadmap step 2.
 
 ## 11. Roll back a failed RedSky deployment
 
@@ -195,7 +249,7 @@ Do this only after RSM provides a verified endpoint and credentials. Note `rsm-c
 
 ## 12. How later pushes deploy, and safeguards
 
-- `redsky-web` watches `cody-rsm/RedSky` **only**. A push to its branch (`main`) rebuilds and redeploys `redsky-web` and nothing else. Pushes to `rsm-crm` deploy only the Twenty services, and the reverse holds too.
+- `redsky-web` watches `cody-rsm/redsky-core` **only**. A push to its branch (`main`) rebuilds and redeploys `redsky-web` and nothing else. Pushes to `rsm-crm` deploy only the Twenty services, and the reverse holds too.
 - Recommended safeguards:
   - Branch protection on `main` (step 2) with the `CI` workflow required.
   - Merge to `main` only from `staging`, after testing a `staging` deployment.
@@ -214,13 +268,17 @@ Do this only after RSM provides a verified endpoint and credentials. Note `rsm-c
 | Migration runner: fresh DB, re-run, refusal of Twenty's DB | **Verified locally** (`node dist/migrate.mjs` in the image) |
 | Production image blocks development sign-in | **Verified locally** (404) |
 | CSP / HSTS / security headers | **Verified locally** |
-| Lint, typecheck, unit + component tests, e2e tests, production build | **Verified locally** (see the CI workflow for the same commands) |
-| `redsky-web` and `redsky-postgres` services on Railway | **Not created**: needs your action (steps 3–4) |
-| Entra ID app registration and the four auth variables | **Requires credentials** |
-| `REDSKY_SESSION_SECRET`, `REDSKY_ENCRYPTION_KEY` | **Requires generation** by you (step 5) |
-| Railway domain | **Unconfigured**: generate only after auth works (step 8) |
+| Lint, typecheck, unit + component tests, e2e tests, production build | **Verified locally and in CI** |
+| `redsky-web` and `redsky-postgres` on Railway | **Done**, production environment |
+| Custom domain `redsky.rsmcapital.com` | **Done**: Cloudflare DNS-only records |
+| `REDSKY_SESSION_SECRET`, `REDSKY_ENCRYPTION_KEY`, Entra variables | **Done**: `/api/health` reports `auth: configured` |
+| Entra admin consent | **Pending**: needs a tenant administrator (step 8c.6) |
+| Entra "Assignment required" | **Recommended**: confirm it's on, with the right people assigned |
+| Scheduled `redsky-postgres` backups | **To do** before real data |
+| Railway-generated domain | Optional: remove once the custom domain is confirmed |
 | `ANTHROPIC_API_KEY` (RedSky AI) | **Requires credentials and approval**; AI shows "not configured" until then |
-| Twenty API URL + key | **Requires verified endpoint and credentials** (step 10); People shows "not connected" until then |
-| Outlook, Teams, SharePoint, LegiStorm and other connectors | **Not implemented**: "Coming soon" with notify list |
-| Scheduled `redsky-postgres` backups | **Unconfigured**: enable before real data |
-| Custom domain | **Unconfigured** |
+| Twenty API URL + key | **Not configured** (step 10); People shows "not connected" until then |
+| CRM write path, record pages, mailbox connection | **Not built**: [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md) roadmap steps 2–4 |
+| Outlook, Teams, SharePoint, Harmonic, PitchBook, AlphaSense and other connectors | **Not implemented**: "Coming soon" with notify list |
+
+Status as reported on 2026-10-20. Update this table as items change.

@@ -13,6 +13,7 @@
 - **Development sign-in** (pick a demo persona) exists only when `NODE_ENV !== 'production'` *and* `AUTH_DEV_ENABLED=true`.
   - The production image answers 404 on `/api/auth/dev/login`, whatever the environment says.
   - Sessions created by development sign-in are rejected in production.
+- **Who may sign in** is decided in Entra: the app registration is single tenant, and with **Assignment required** only assigned people or groups can sign in. The tenant must grant admin consent once ([`DEPLOYMENT.md`](DEPLOYMENT.md) step 8c).
 - **No credentials configured means locked.** A production deployment without Entra configuration shows "Sign-in isn't configured", and every API returns 401. There are no default or fallback credentials.
 
 ## Authorization
@@ -65,10 +66,14 @@
 - **Health.** `/api/health` reports coarse status only: database ok/unavailable, auth configured or not, data mode, and the commit prefix.
 - **Audit.** The `audit_events` table records sign-ins (including denials), onboarding completion and restart, every Workstyle operation, confirmed AI actions and approvals.
 
-## Database isolation from Twenty
+## Isolation from Twenty
 
 RedSky uses its own PostgreSQL service and the `redsky` schema. The migration runner refuses any database containing Twenty's schemas or another application's tables, and it serializes concurrent deploys with an advisory lock. RedSky never queries Twenty's database; CRM data comes only through the authenticated REST adapter.
 
+CRM access through the API has two known limits until per-person access is built ([`CRM_INTEGRATION.md`](CRM_INTEGRATION.md), "Who sees what"):
+- **Visibility.** A Twenty API key covers the whole workspace, so every RedSky user sees what the key can see. Connect it only to staging data until per-person access exists.
+- **Attribution.** Planned writes would appear in Twenty as made by the key. RedSky's audit log records the real person.
+
 ## Secrets
 
-`.env*` (except `.env.example`), PDFs and key files are git-ignored and excluded from the Docker build context. Secrets live in Railway service variables and RSM's password manager. Losing `REDSKY_ENCRYPTION_KEY` makes stored Workstyle data unreadable by design.
+`.env*` (except `.env.example`), PDFs and key files are git-ignored and excluded from the Docker build context. Secrets live in `redsky-web`'s service variables (not project Shared Variables, which Twenty's services can see), sealed where possible, and in RSM's password manager. Losing `REDSKY_ENCRYPTION_KEY` makes stored Workstyle data unreadable by design.

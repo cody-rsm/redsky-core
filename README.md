@@ -1,6 +1,10 @@
 # RedSky
 
-RSM Capital's internal operating system: a personalized workspace with a 9-step onboarding, Workstyle Intelligence, a customizable home dashboard and RedSky AI. It runs as its own service next to the Twenty CRM deployment and talks to Twenty only through a server-side, read-only adapter.
+RSM Capital's internal operating system: a personalized workspace with a 9-step onboarding, Workstyle Intelligence, a customizable home dashboard and RedSky AI.
+
+RedSky is the **only application staff use**. The rsm-crm Twenty deployment is the CRM's back end and system of record; only administrators open its screens. RedSky runs as its own service with its own database and reaches Twenty only through its API. See [`docs/CRM_INTEGRATION.md`](docs/CRM_INTEGRATION.md) for the plan and roadmap.
+
+Production: `https://redsky.rsmcapital.com`.
 
 The approved Claude Design prototype in [`prototype/`](prototype/) is the source of truth for the UI. This app reproduces it as production code.
 
@@ -14,7 +18,7 @@ The approved Claude Design prototype in [`prototype/`](prototype/) is the source
 | Home | Daily Brief and 12 more widgets, 5 tabs, customization (drag, keyboard move, resize, hide, widget library, density, opens-to), all saved per employee. |
 | Workspace | Command palette, RedSky AI panel, meeting prep and record drawers, quick create, notifications, Settings (7 tabs), People, Pipeline and roadmap module pages, light/dark themes. |
 | AI | Anthropic provider when configured, otherwise "not configured". Demo mode uses the prototype's simulated answers, labelled as simulated. Proposed actions run only after explicit confirmation and server-side authorization. |
-| CRM | Twenty REST adapter with normalized models. Inactive until `TWENTY_API_URL` and `TWENTY_API_KEY` are set. |
+| CRM | Read-only Twenty adapter with normalized models. Inactive until `TWENTY_API_URL` and `TWENTY_API_KEY` are set. Writing, editable record pages, mailbox connection and deals are the next roadmap steps ([`docs/CRM_INTEGRATION.md`](docs/CRM_INTEGRATION.md)). |
 
 ### Data modes
 
@@ -53,10 +57,12 @@ To run the database-backed migration guard tests, set `REDSKY_TEST_DATABASE_URL`
 
 ## Deployment
 
-RedSky deploys to Railway from this repository's `Dockerfile` (see [`railway.json`](railway.json)). It gets its own Postgres service; the existing Twenty services are not touched. Click-by-click steps, the variable list, the checklist and rollback are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+RedSky deploys to Railway from this repository's `Dockerfile` (see [`railway.json`](railway.json)) as `redsky-web`, with its own `redsky-postgres` service; the Twenty services are not touched. Click-by-click steps (including the `redsky.rsmcapital.com` domain and Entra sign-in), the variable list, the checklist and rollback are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Documentation
 
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): decision record
+- [`docs/CRM_INTEGRATION.md`](docs/CRM_INTEGRATION.md): RedSky in front, Twenty behind; one-system roadmap; market-data providers; leaving Twenty later
 - [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md): prototype audit, architecture, key decisions
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): code map, data flow, adding widgets, connectors and AI tools
 - [`docs/SECURITY.md`](docs/SECURITY.md): authentication, authorization, Workstyle privacy, AI safeguards, audit
