@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from 'react';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { ToastViewport } from '@/components/common/toast-viewport';
 import { WidgetLibraryDrawer } from '@/components/dashboard/widget-library-drawer';
+import { CrmConnectionNotice } from '@/components/integrations/crm-connection';
 import { AiPanel } from '@/components/overlays/ai-panel';
 import { CommandPalette } from '@/components/overlays/command-palette';
 import { MeetingPrepDrawer } from '@/components/overlays/meeting-prep-drawer';
@@ -47,6 +48,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       <QuickCreateModal />
       <ConfirmDialog />
       <ToastViewport />
+      <CrmConnectionNotice />
       {viewer.config.dataMode === 'demo' ? <DemoSwitcher /> : null}
     </div>
   );

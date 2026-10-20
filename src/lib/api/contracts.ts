@@ -17,7 +17,7 @@ export type PublicConfigView = {
   authMode: 'entra' | 'dev' | 'none';
   aiAvailable: boolean;
   aiSimulated: boolean;
-  crmConnected: boolean;
+  crmConfigured: boolean;
   workstyleStorageAvailable: boolean;
   documentsAvailable: boolean;
   // The firm's time zone; dates and greetings use it so server and browser render the same text.
@@ -52,9 +52,14 @@ export type ViewerPayload = {
   onboarding: { currentStep: number; maxStep: number; completed: boolean };
   integrations: Partial<Record<ConnectorId, 'notify' | 'requested'>>;
   workstyle: WorkstyleSummary;
+  crm: CrmConnectionView;
   config: PublicConfigView;
   demo: { activePersona: DemoPersonaId; personas: DemoPersonaView[]; switchesUser: boolean; todayLabel: string } | null;
 };
+
+// This person's own connection to Twenty: RedSky reads the CRM with their access, never a shared key.
+// `reconnect` means Twenty stopped accepting the connection (revoked, expired, or access removed).
+export type CrmConnectionView = { status: 'not_configured' | 'not_connected' | 'connected' | 'reconnect'; account: string | null };
 
 // ---- Widgets ---------------------------------------------------------------------------------------------
 
@@ -200,7 +205,12 @@ export type PipelineBoard = {
 };
 
 export type PeopleRow = { id: string; name: string; initials: string; tone: number; title: string; org: string; owner: string; last: string; strength: string | null };
-export type PeopleResponse = { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null } | { status: 'not_connected' } | { status: 'error'; message: string };
+export type PeopleResponse =
+  | { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null }
+  | { status: 'not_connected' }
+  | { status: 'connect'; reconnect: boolean }
+  | { status: 'forbidden' }
+  | { status: 'error'; message: string };
 
 // ---- Records, meetings, search, notifications -------------------------------------------------------------
 

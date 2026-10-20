@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { ConnectorLogo } from '@/components/common/connector-logo';
+import { CrmConnectionRow } from '@/components/integrations/crm-connection';
 import { Chip, type ChipTone } from '@/components/ui/chip';
 import { Icon } from '@/components/ui/icon';
 import { Segmented } from '@/components/ui/segmented';
@@ -273,10 +274,11 @@ export function ConnectedAppsTab() {
   const { notify, stateOf } = useConnectorActions();
   return (
     <>
+      <CrmConnectionRow />
       <div className="note" style={{ margin: '14px 0 6px' }}>
         <Icon name="alert" size="s" style={{ marginTop: 1 }} />
         <span>
-          All connectors are coming soon. Choose Notify me and RedSky will tell you when each one is ready.
+          The connectors below are coming soon. Choose Notify me and RedSky will tell you when each one is ready.
           {viewer.config.dataMode === 'demo' ? ' Records shown in this demo are sample data.' : ' Until then, widgets that need them show what connecting would enable.'}
         </span>
       </div>

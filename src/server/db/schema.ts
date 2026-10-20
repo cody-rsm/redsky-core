@@ -259,6 +259,23 @@ export const aiActionExecutions = redsky.table(
   (table) => [uniqueIndex('ai_action_executions_key_idx').on(table.userId, table.actionKey)],
 );
 
+// Each person's own connection to Twenty (docs/DECISIONS.md 7). RedSky reads the CRM with these tokens, so Twenty's
+// permissions for that person apply. Tokens are encrypted (AES-256-GCM, bound to the user) and never leave the server.
+export const twentyConnections = redsky.table('twenty_connections', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  twentyUserId: text('twenty_user_id').notNull(),
+  twentyWorkspaceId: text('twenty_workspace_id').notNull(),
+  // The Twenty account's email, checked against the RedSky user's at connection time.
+  account: text('account').notNull(),
+  accessTokenCiphertext: text('access_token_ciphertext').notNull(),
+  accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }).notNull(),
+  refreshTokenCiphertext: text('refresh_token_ciphertext').notNull(),
+  // `reconnect` once Twenty refuses the refresh token: the grant was revoked, expired or the access removed.
+  status: text('status', { enum: ['active', 'reconnect'] }).notNull().default('active'),
+  connectedAt: timestamp('connected_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: updatedAt(),
+});
+
 // Documents uploaded in RedSky (docs/DECISIONS.md 3). The original lives in the documents bucket under
 // `storage_key`; redsky-ocr keeps what it extracts in its own database, keyed by `ocr_document_id`.
 export const documents = redsky.table(

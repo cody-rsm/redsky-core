@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mapCompany, mapOpportunity, mapPerson, sanitizeSearchTerm, TwentyCrmAdapter } from '@/server/integrations/crm/twenty-adapter';
+import { CrmError } from '@/server/integrations/crm/types';
 
 describe('Twenty record mapping', () => {
   it('maps a person, including composite name, email and phone fields', () => {
@@ -42,9 +43,13 @@ describe('Twenty record mapping', () => {
 describe('TwentyCrmAdapter', () => {
   const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-  it('lists contacts with bearer auth, limit and cursor', async () => {
+  // The signed-in person's tokens: `token-1` until a refresh is forced, then `token-2`.
+  const personCredentials = () => vi.fn(async ({ forceRefresh }: { forceRefresh: boolean }) => (forceRefresh ? 'token-2' : 'token-1'));
+  const authorization = (call: unknown) => new Headers((call as [URL, RequestInit])[1].headers).get('Authorization');
+
+  it('lists contacts with the person’s bearer token, limit and cursor', async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ data: { people: [{ id: 'p1', name: { firstName: 'Ann', lastName: 'Lee' } }] }, pageInfo: { hasNextPage: true, endCursor: 'cur2' } }));
-    const adapter = new TwentyCrmAdapter(new URL('https://crm.example.com'), 'secret-key', fetchMock);
+    const adapter = new TwentyCrmAdapter(new URL('https://crm.example.com'), personCredentials(), fetchMock);
     const page = await adapter.listContacts({ limit: 500, cursor: 'cur1' });
     expect(page.items[0]?.fullName).toBe('Ann Lee');
     expect(page.nextCursor).toBe('cur2');
@@ -53,11 +58,29 @@ describe('TwentyCrmAdapter', () => {
     expect(target.pathname).toBe('/rest/people');
     expect(target.searchParams.get('limit')).toBe('200');
     expect(target.searchParams.get('starting_after')).toBe('cur1');
-    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer secret-key');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer token-1');
   });
 
-  it('reports unauthorized responses as a typed error', async () => {
-    const adapter = new TwentyCrmAdapter(new URL('https://crm.example.com'), 'bad', vi.fn().mockResolvedValue(response({ message: 'no' }, 401)));
-    await expect(adapter.listContacts({ limit: 10 })).rejects.toMatchObject({ kind: 'unauthorized' });
+  it('refreshes the person’s token once when Twenty refuses it, then retries', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({ message: 'expired' }, 401)).mockResolvedValueOnce(response({ data: { people: [] } }));
+    const credentials = personCredentials();
+    const page = await new TwentyCrmAdapter(new URL('https://crm.example.com'), credentials, fetchMock).listContacts();
+    expect(page.items).toEqual([]);
+    expect(credentials.mock.calls.map(([options]) => options.forceRefresh)).toEqual([false, true]);
+    expect(fetchMock.mock.calls.map(authorization)).toEqual(['Bearer token-1', 'Bearer token-2']);
+  });
+
+  it('reports a connection Twenty keeps refusing as unauthorized, and a missing role permission as forbidden', async () => {
+    const refused = new TwentyCrmAdapter(new URL('https://crm.example.com'), personCredentials(), vi.fn().mockResolvedValue(response({ message: 'no' }, 401)));
+    await expect(refused.listContacts({ limit: 10 })).rejects.toMatchObject({ kind: 'unauthorized' });
+    const denied = new TwentyCrmAdapter(new URL('https://crm.example.com'), personCredentials(), vi.fn().mockResolvedValue(response({ statusCode: 400, messages: ['Permission denied'], code: 'PERMISSION_DENIED' }, 400)));
+    await expect(denied.listContacts({ limit: 10 })).rejects.toMatchObject({ kind: 'forbidden' });
+  });
+
+  it('never sends a request without the person’s token', async () => {
+    const fetchMock = vi.fn();
+    const adapter = new TwentyCrmAdapter(new URL('https://crm.example.com'), vi.fn().mockRejectedValue(new CrmError('unauthorized', 'not connected')), fetchMock);
+    await expect(adapter.listContacts()).rejects.toMatchObject({ kind: 'unauthorized' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

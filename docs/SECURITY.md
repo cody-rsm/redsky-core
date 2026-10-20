@@ -15,6 +15,17 @@
   - Sessions created by development sign-in are rejected in production.
 - **No credentials configured means locked.** A production deployment without Entra configuration shows "Sign-in isn't configured", and every API returns 401. There are no default or fallback credentials.
 
+## The CRM connection (Twenty)
+
+RedSky reads Twenty as each person, never with a shared key ([`DECISIONS.md`](DECISIONS.md) 7).
+
+- **Per-person grant.** Each person approves RedSky on Twenty's consent page. RedSky is a confidential OAuth client (secret posted to Twenty's token endpoint), and the flow is the authorization code grant with PKCE (S256), a state value and Twenty's `iss` response parameter, all checked by `openid-client`.
+- **Transaction cookie.** The state, PKCE verifier and return page travel in an encrypted, `HttpOnly`, `SameSite=Lax` cookie scoped to `/api/integrations/twenty`. It is bound to the RedSky user who started the connection and expires after ten minutes. The return page is checked as a same-site path.
+- **Same person.** After the code exchange, RedSky asks Twenty whose token it is. If that email is not the signed-in RedSky user's, RedSky revokes the grant and refuses, so nobody can attach a colleague's Twenty account. Refusals are audited (`integration.twenty_connect_refused`).
+- **Permissions stay in Twenty.** The token carries the person's Twenty role and deal walls. What Twenty refuses (`PERMISSION_DENIED`) RedSky doesn't show, and it never retries with other credentials. People says the person's CRM role doesn't include people.
+- **Token storage.** Access and refresh tokens are encrypted with AES-256-GCM under `REDSKY_ENCRYPTION_KEY`, bound to the user and token kind, in `twenty_connections`. They never reach the browser or the logs. Access tokens last 30 minutes and are refreshed on demand. When Twenty refuses a refresh (`invalid_grant`), or a token no longer decrypts, the person is asked to reconnect.
+- **Disconnect** (Settings › Connected apps) revokes the grant in Twenty and deletes the tokens; it is audited. An access token Twenty already issued stays valid until it expires, at most 30 minutes later.
+
 ## Authorization
 
 - **Access roles** are `member` and `admin`. Admin comes from the Entra app role named in `AUTH_ENTRA_ADMIN_ROLE`. Onboarding focus areas are personalization, never permissions.
@@ -62,8 +73,8 @@
 ## Logging, diagnostics and audit
 
 - **Logs.** Structured JSON. Keys that can carry secrets or personal data (tokens, cookies, emails, assessment content) are redacted before writing.
-- **Health.** `/api/health` reports coarse status only: database ok/unavailable, auth configured or not, data mode, and the commit prefix.
-- **Audit.** The `audit_events` table records sign-ins (including denials), onboarding completion and restart, every Workstyle operation, confirmed AI actions and approvals.
+- **Health.** `/api/health` reports coarse status only: database ok/unavailable, whether auth, Documents and the CRM are configured, data mode, and the commit prefix.
+- **Audit.** The `audit_events` table records sign-ins (including denials), onboarding completion and restart, every Workstyle operation, confirmed AI actions and approvals, and Twenty connections (connected, refused, disconnected).
 
 ## Database isolation from Twenty
 

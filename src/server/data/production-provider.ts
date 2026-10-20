@@ -2,7 +2,7 @@ import 'server-only';
 import { initialsFromName } from '@/components/ui/avatar';
 import { connectorById, type ConnectorId } from '@/features/integrations/catalog';
 import type { NotConnectedSource, RecordPreview, SearchResult, WidgetResponse } from '@/lib/api/contracts';
-import { getCrmAdapter } from '@/server/integrations/crm';
+import { getCrmAccess } from '@/server/integrations/crm';
 import { CrmError } from '@/server/integrations/crm/types';
 import { logger } from '@/server/logging/logger';
 import { documentsConfigured, recentDocumentViews } from '@/server/services/document-service';
@@ -67,9 +67,11 @@ export const productionProvider: WorkspaceDataProvider = {
     return { status: 'not_connected', source: PLANNED_SOURCES.pipeline };
   },
 
-  async record(kind, id) {
-    const crm = getCrmAdapter();
-    if (!crm || (kind !== 'contact' && kind !== 'company')) return null;
+  async record(kind, id, context) {
+    if (kind !== 'contact' && kind !== 'company') return null;
+    const access = await getCrmAccess(context.userId);
+    if (access.status !== 'connected') return null;
+    const crm = access.adapter;
     try {
       if (kind === 'contact') {
         const contact = await crm.getContact(id);
@@ -120,11 +122,12 @@ export const productionProvider: WorkspaceDataProvider = {
     return null;
   },
 
-  async search(query) {
-    const crm = getCrmAdapter();
-    if (!crm || query.trim().length < 2) return { results: [], recent: [] };
+  async search(query, context) {
+    if (query.trim().length < 2) return { results: [], recent: [] };
+    const access = await getCrmAccess(context.userId);
+    if (access.status !== 'connected') return { results: [], recent: [] };
     try {
-      const contacts = await crm.listContacts({ search: query, limit: 5 });
+      const contacts = await access.adapter.listContacts({ search: query, limit: 5 });
       const results: SearchResult[] = contacts.items.map((contact) => ({
         kind: 'person',
         id: contact.id,

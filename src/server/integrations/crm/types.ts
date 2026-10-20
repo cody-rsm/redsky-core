@@ -59,7 +59,9 @@ export interface CrmAdapter {
 
 export class CrmError extends Error {
   constructor(
-    public readonly kind: 'unauthorized' | 'unreachable' | 'rate_limited' | 'bad_response',
+    // unauthorized: the person's connection to Twenty is missing or no longer accepted; forbidden: their Twenty
+    // role does not cover what was asked.
+    public readonly kind: 'unauthorized' | 'forbidden' | 'unreachable' | 'rate_limited' | 'bad_response',
     message: string,
   ) {
     super(message);

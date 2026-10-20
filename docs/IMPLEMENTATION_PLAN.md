@@ -50,7 +50,7 @@ Twenty CRM (separate Railway service) — reached only via authenticated server-
 7. **Explicit data modes.** `REDSKY_DATA_MODE=demo` serves the prototype's sample data, labeled everywhere. `production` never falls back to sample data: unconnected sources render designed empty states. RedSky-native data (profile, preferences, layout, onboarding, tasks, workstyle, AI conversations) is real in both modes.
 8. **Workstyle Intelligence:** consent-gated PDF upload (type, size and magic-byte checks), real text extraction for text-based PDFs (`unpdf`), a heuristic TTI parser whose every value is shown for employee review, an honest unreadable/scanned state, manual entry, and explicit threshold rules for recommendations. The extracted profile is encrypted (AES-256-GCM) and readable only by its owner, every read is audited, and removal is a hard delete. The original PDF is not retained unless retention is explicitly enabled.
 9. **AI:** provider interface with an Anthropic adapter (server-only key) and a simulated provider (demo mode only). Context retrieval is permission-scoped and limited to RedSky-native data that actually exists. Proposed actions are structured and executed only after explicit confirmation plus a server-side authorization check. Every confirmed action is audited and idempotent.
-10. **Twenty boundary:** `CrmAdapter` with normalized `Contact/Company/Opportunity/Activity/Relationship` models. The Twenty REST adapter follows the fork's actual v2.44 API (`/rest/{plural}`, Bearer API key, cursor pagination), treats `rsm-core` custom fields as optional, and stays inactive until `TWENTY_API_URL` + `TWENTY_API_KEY` are set.
+10. **Twenty boundary:** `CrmAdapter` with normalized `Contact/Company/Opportunity/Activity/Relationship` models. The Twenty REST adapter follows the fork's actual v2.44 API (`/rest/{plural}`, cursor pagination), treats `rsm-core` custom fields as optional, and calls Twenty with each person's own OAuth token ([`DECISIONS.md`](DECISIONS.md) 7). It stays inactive until `TWENTY_API_URL`, `TWENTY_OAUTH_CLIENT_ID` and `TWENTY_OAUTH_CLIENT_SECRET` are set.
 
 ## 3. Build order (one codebase)
 
@@ -68,7 +68,7 @@ Twenty CRM (separate Railway service) — reached only via authenticated server-
 |---|---|
 | Entra app registration (tenant ID, client ID, client secret, redirect URI) | Real sign-in on any deployed environment |
 | `ANTHROPIC_API_KEY` (approved, no-training terms) | Real RedSky AI answers |
-| Twenty API URL + a dedicated API key with a scoped role | CRM-backed People/records |
+| Twenty API URL and RedSky's OAuth registration in Twenty (`docs/DEPLOYMENT.md` §10) | CRM-backed People/records |
 | Official connector logos + brand-use permission | 9 monogram connectors |
 | Legal review of Workstyle consent text and retention; TTI parsing licence | Workstyle in production |
 | Naming: the Twenty deployment is itself branded "RedSky" (emails, tab title) | Avoid two products with the same name |

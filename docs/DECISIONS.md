@@ -10,7 +10,7 @@ Decisions that shape the RedSky platform. Each one has a number, a status and th
 | 4 | Services talk over versioned HTTP APIs and signed events, never shared queues | Decided | 2026-10-20 |
 | 5 | Two repositories: `redsky-core` for the platform, `redsky-twenty` for the CRM | Decided | 2026-10-20 |
 | 6 | OCRmyPDF (searchable-PDF copies) | Open: waits on the AGPL position | |
-| 7 | How the RedSky API reads Twenty as the signed-in user | Open | |
+| 7 | How the RedSky API reads Twenty as the signed-in user: each person connects through Twenty's OAuth | Decided | 2026-10-20 |
 | 8 | Document OCR as a private RedSky service (`redsky-ocr`) | Proposed: built, not deployed | 2026-10-20 |
 
 ## 1. One owner per record type; Twenty is replaced one area at a time
@@ -43,7 +43,7 @@ Decisions that shape the RedSky platform. Each one has a number, a status and th
 **Why.** Two permission models for the same records disagree sooner or later, and a deal wall that only one of them knows about leaks. Enforcing permissions where a record lives means there is one model per record type, and it moves with the record (decision 1).
 
 **Consequences:**
-- The current Twenty adapter (`src/server/integrations/crm/twenty-adapter.ts`) calls Twenty with one shared API key (`TWENTY_API_KEY`). That breaks this rule: every RedSky user sees what the key's role sees. It is acceptable only while Twenty holds no real client data (its deployment is pre-production), and must be replaced before it does. Decision 7.
+- The first Twenty adapter called Twenty with one shared API key (`TWENTY_API_KEY`), so every RedSky user saw what the key's role saw. Decision 7 replaced it with a token per person (2026-10-20).
 - Admin rights in one system grant nothing in the other.
 
 ## 3. Documents live in RedSky storage; SharePoint stays the deal-system home
@@ -95,7 +95,23 @@ Decisions that shape the RedSky platform. Each one has a number, a status and th
 
 ## 7. How the RedSky API reads Twenty as the signed-in user
 
-**Open.** Decision 2 needs the RedSky API to call Twenty with a token for the signed-in user instead of a shared key. Both sign in through Entra ID, but they hold separate sessions. Options to evaluate against Twenty 2.44: an OAuth flow in which Twenty issues RedSky a token per user, or exchanging the user's Entra token for a Twenty token. Until this is decided, the shared key stays read-only and limited to a pre-production Twenty.
+**Decided (2026-10-20).** Each person connects their own Twenty account to RedSky once, through Twenty's OAuth server, and the RedSky API reads Twenty with that person's token.
+
+**Decision:**
+- RedSky is registered in Twenty as one confidential OAuth client, with scopes `api profile` and the redirect address `<REDSKY_APP_URL>/api/integrations/twenty/callback` (`docs/DEPLOYMENT.md` §10). People connect from People or Settings › Connected apps and approve RedSky on Twenty's consent page. The flow is the authorization code grant with PKCE (S256), a state value and Twenty's `iss` response parameter, all checked.
+- Twenty decides what each token can do. A user's token carries that person's Twenty role and deal walls (and, if the RedSky registration is ever given an app role, only what both roles allow). RedSky keeps no copy of Twenty's permissions: what Twenty refuses, RedSky doesn't show (People says the person's CRM role doesn't include people).
+- The Twenty account must be the RedSky user. After the code exchange, RedSky asks Twenty whose token it is (`currentUser`). If that email is not the signed-in RedSky user's, RedSky revokes the grant and refuses the connection, so someone signed in to Twenty as a colleague can't act as them.
+- Tokens are stored per person in `redsky.twenty_connections`, encrypted with AES-256-GCM under `REDSKY_ENCRYPTION_KEY` and bound to the user and token kind. Access tokens last 30 minutes and are refreshed on demand, once at a time per person; each refresh replaces the refresh token (60 days). Tokens never reach the browser or the logs.
+- `TWENTY_API_KEY` is no longer read. RedSky reports it as a configuration issue if it is still set.
+
+**Why.** Twenty 2.44 ships an OAuth 2.1 authorization server that issues per-user tokens (open-source code: no Enterprise licence, no core patch). Exchanging the person's Entra token for a Twenty token was the alternative, but Twenty's token endpoint accepts only the authorization-code and refresh grants, so it would need a patch to Twenty and a trust relationship to keep secure. With Twenty's own OAuth, Twenty stays the only issuer of access to its records.
+
+**Consequences:**
+- One extra step per person: connect once, and again if Twenty stops accepting the grant (revoked, or the refresh token unused for 60 days). Where CRM data would be, RedSky shows "Connect Twenty" or "Reconnect Twenty".
+- Disconnecting (Settings › Connected apps) revokes the grant in Twenty and deletes the stored tokens. An access token Twenty already issued stays valid until it expires, at most 30 minutes later: Twenty cannot revoke access tokens.
+- Deleting a RedSky user deletes their stored tokens. Removing someone from Twenty is still done in Twenty.
+- Background jobs that need Twenty without a signed-in person can't use this. They need their own decision, never a shared all-access key (decision 2).
+- If someone opens the consent page while signed out of Twenty, Twenty 2.44 shows its own home page after sign-in instead of returning to the consent page; they click Connect in RedSky again.
 
 ## 8. Document OCR as a private RedSky service (`redsky-ocr`)
 

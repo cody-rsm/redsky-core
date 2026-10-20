@@ -67,7 +67,7 @@ function AiPanelBody() {
         { label: 'Your RedSky tasks', ok: true },
         { label: 'Calendar · not connected', ok: false },
         { label: 'Email · not connected', ok: false },
-        { label: viewer.config.crmConnected ? 'RSM CRM' : 'CRM · not connected', ok: viewer.config.crmConnected },
+        { label: viewer.crm.status === 'connected' ? 'RSM CRM' : 'CRM · not connected', ok: viewer.crm.status === 'connected' },
       ];
 
   return (

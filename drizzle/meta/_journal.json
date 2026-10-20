@@ -15,6 +15,13 @@
       "when": 1792505991215,
       "tag": "0001_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792512703751,
+      "tag": "0002_twenty_connections",
+      "breakpoints": true
     }
   ]
 }

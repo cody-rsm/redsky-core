@@ -9,7 +9,7 @@ RedSky is added to the **existing** Railway project as two new services:
 | `redsky-ocr` (optional, §13) | Same repository, root directory `services/ocr` | Document OCR and extraction. Private. Its own `redsky_ocr` database on `redsky-postgres`. |
 | `redsky-documents` (with §13) | Railway Storage Bucket | Originals uploaded in RedSky's Documents page. `redsky-web` writes them; `redsky-ocr` reads them. |
 
-`twenty-server`, `twenty-worker`, `Postgres`, `Redis` and `Bucket` are **not changed** by any step below. RedSky never connects to Twenty's `Postgres`. It reaches Twenty only through Twenty's REST API (step 10), and only once you add credentials.
+`twenty-server`, `twenty-worker`, `Postgres`, `Redis` and `Bucket` are **not changed** by any step below. RedSky never connects to Twenty's `Postgres`. It reaches Twenty only through Twenty's APIs, as each signed-in person (step 10), and only once you register it there.
 
 > **Approval boundary.** This guide describes actions *you* take in GitHub and Railway. Nothing here was run against Railway by the build process.
 
@@ -73,7 +73,7 @@ Open `redsky-web` → **Variables → Raw Editor** and paste the following, then
 
 ```bash
 openssl rand -base64 48    # REDSKY_SESSION_SECRET
-openssl rand -base64 32    # REDSKY_ENCRYPTION_KEY  (losing it makes stored Workstyle data unreadable)
+openssl rand -base64 32    # REDSKY_ENCRYPTION_KEY  (losing it makes stored Workstyle data unreadable, and everyone reconnects Twenty)
 ```
 
 ```env
@@ -170,22 +170,51 @@ Do this **after** the deployment is healthy and the four Entra variables plus `R
 - [ ] Settings › Profile › **Sign out** ends the session.
 - [ ] Twenty is unaffected: `twenty-server` deployments and its `/healthz` are unchanged.
 
-## 10. Optional: Twenty API integration
+## 10. Optional: Twenty CRM integration
 
-Do this only after RSM provides a verified endpoint and credentials. Note `redsky-twenty`'s Railway README: the Twenty deployment is currently **staging / pre-production**, with no real client data.
+Do this only after RSM provides a verified Twenty endpoint. Note `redsky-twenty`'s Railway README: the Twenty deployment is currently **staging / pre-production**, with no real client data.
 
-The shared API key below is a stopgap: every RedSky user sees what its role sees, which conflicts with [`DECISIONS.md`](DECISIONS.md) 2. Use it only while Twenty holds no real client data, until per-user access replaces it (decision 7).
+RedSky reads Twenty as each person ([`DECISIONS.md`](DECISIONS.md) 7). Each person connects their own Twenty account once, and Twenty applies their role and deal walls. RedSky needs one OAuth registration in Twenty, made once by a Twenty administrator, and no shared API key.
 
-1. In Twenty: **Settings → APIs & Webhooks → Create API key**. Give it a dedicated, read-only role if roles are configured. Store it in the password manager.
-2. Find Twenty's private address: `twenty-server` → **Settings → Networking → Private Networking** shows `twenty-server.railway.internal`. Find its port from `twenty-server` → **Variables** (`NODE_PORT`; `redsky-twenty` documents `PORT=3000`). Verify both; don't assume them.
-3. On `redsky-web` → **Variables**, add:
+1. **Check Twenty's OAuth metadata.** Open `https://<twenty domain>/.well-known/oauth-authorization-server`. Its `issuer` must be exactly `https://<twenty domain>`.
+   - If it starts with `http://`, Twenty is not trusting Railway's forwarded headers. Set `TRUST_PROXY=1` on `twenty-server` (Railway's edge is one proxy in front of it), redeploy it, and check again.
+   - Record the change in `redsky-twenty`'s `rsm/deploy/railway/server.env.example`.
+2. **Register RedSky in Twenty.** Twenty 2.44 has no settings screen for this, so call its metadata API once with a short-lived API key:
+   1. In Twenty, open **Settings → APIs & Webhooks → Create API key**. Name it `redsky-registration`, give it a role with the **API keys & webhooks** permission (Admin), and set the expiry to tomorrow.
+   2. On your own machine, run the following, with both placeholders filled:
+      ```bash
+      curl -sS https://<twenty domain>/metadata \
+        -H 'Authorization: Bearer <temporary key>' -H 'Content-Type: application/json' \
+        -d '{"query":"mutation($input: CreateApplicationRegistrationInput!) { createApplicationRegistration(input: $input) { clientSecret applicationRegistration { id oAuthClientId } } }","variables":{"input":{"name":"RedSky","oAuthRedirectUris":["https://<redsky domain>/api/integrations/twenty/callback"],"oAuthScopes":["api","profile"]}}}'
+      ```
+      The response holds `oAuthClientId`, the registration `id` and `clientSecret`. The secret is shown only once: store all three in the password manager.
+   3. Delete the temporary key in **Settings → APIs & Webhooks**.
+
+   The name `RedSky` is what people see on Twenty's consent page. The redirect address must match `REDSKY_APP_URL` exactly; register the custom domain too if you add one later (`updateApplicationRegistration`).
+3. **Find Twenty's private address.** `twenty-server` → **Settings → Networking → Private Networking** shows `twenty-server.railway.internal`. Find its port in `twenty-server` → **Variables** (`NODE_PORT`; `redsky-twenty` documents `PORT=3000`). Verify both; don't assume them.
+4. **Set the variables.** On `redsky-web` → **Variables**, add the following, and seal the secret:
    ```env
    TWENTY_API_URL=http://twenty-server.railway.internal:<NODE_PORT>
-   TWENTY_API_KEY=<the key>
+   TWENTY_PUBLIC_URL=https://<twenty domain>
+   TWENTY_OAUTH_CLIENT_ID=<oAuthClientId>
+   TWENTY_OAUTH_CLIENT_SECRET=<clientSecret>
    ```
-   Alternatively, use Twenty's public HTTPS domain.
-4. Redeploy `redsky-web`.
-5. Verify: **People** lists CRM contacts, and record previews open for contacts and companies. The adapter is read-only. Nothing in RedSky writes to Twenty.
+   - `TWENTY_API_URL` carries the data calls over the private network.
+   - `TWENTY_PUBLIC_URL` is where people approve RedSky and where RedSky exchanges codes for tokens. It must equal the `issuer` from step 1.
+   - The connection also needs `REDSKY_APP_URL` and `REDSKY_ENCRYPTION_KEY` (step 5), which encrypts the stored tokens.
+   - If an older `TWENTY_API_KEY` is set, delete it and revoke that key in Twenty. RedSky no longer reads it, and logs a warning while it is set.
+5. **Redeploy `redsky-web`.** The pre-deploy step adds the `twenty_connections` table. `/api/health` then shows `"crm":"configured"`; if it doesn't, the deploy log names the missing setting ("The Twenty connection has configuration issues").
+6. **Verify.**
+   1. In RedSky, open **People → Connect Twenty**, approve RedSky on Twenty's page, and check People lists the contacts your Twenty role allows.
+   2. Check **Settings → Connected apps** shows "Connected as <your email>".
+   3. **Disconnect** there, and check People asks you to connect again.
+
+   If Twenty asks you to sign in first, it opens its own home page afterwards instead of the consent page. Return to RedSky and click Connect again.
+
+The adapter is read-only: nothing in RedSky writes to Twenty.
+
+- **Turn the connection off:** remove the four variables and redeploy. RedSky shows "not connected" and stops using the stored tokens.
+- **Rotate the client secret:** call `rotateApplicationRegistrationClientSecret(id: "<registration id>")` with a temporary key, as in step 2 (it also needs the **Roles** permission). Then update `TWENTY_OAUTH_CLIENT_SECRET` and redeploy.
 
 ## 11. Roll back a failed RedSky deployment
 
@@ -306,7 +335,8 @@ Railway bills usage. At an idle footprint of about 150 MB and near-zero CPU, the
 | `REDSKY_SESSION_SECRET`, `REDSKY_ENCRYPTION_KEY` | **Requires generation** by you (step 5) |
 | Railway domain | **Unconfigured**: generate only after auth works (step 8) |
 | `ANTHROPIC_API_KEY` (RedSky AI) | **Requires credentials and approval**; AI shows "not configured" until then |
-| Twenty API URL + key | **Requires verified endpoint and credentials** (step 10); People shows "not connected" until then |
+| Twenty connection: OAuth registration and four variables | **Requires a verified endpoint and a Twenty administrator** (step 10); People shows "not connected" until then |
+| Per-person Twenty access: connect, role limits, wrong-account refusal, reconnect after revocation, disconnect | **Verified locally** in the browser against a local Twenty 2.44 |
 | Outlook, Teams, SharePoint, LegiStorm and other connectors | **Not implemented**: "Coming soon" with notify list |
 | Scheduled `redsky-postgres` backups | **Unconfigured**: enable before real data |
 | Custom domain | **Unconfigured** |

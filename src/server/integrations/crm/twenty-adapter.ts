@@ -6,8 +6,9 @@ import { CrmError, type CrmAdapter, type CrmCompany, type CrmContact, type CrmHe
 //   packages/twenty-server/src/engine/api/rest/core/controllers/rest-api-core.controller.ts  (GET /rest/{plural})
 //   list envelope { data: { <plural>: [...] }, totalCount, pageInfo { hasNextPage, endCursor } }
 //   single envelope { data: { <singular>: {...} } }; cursor pagination via `starting_after`; limit ≤ 200
-//   Authorization: Bearer <workspace API key>; filter=field[op]:value with and()/or() conjunctions.
-// Read-only by design for this release; writes will go through confirmed, audited RedSky actions.
+//   Authorization: Bearer <the signed-in person's OAuth access token>; filter=field[op]:value with and()/or().
+// Twenty answers with that person's role and deal walls (docs/DECISIONS.md 7). Read-only by design for this release;
+// writes will go through confirmed, audited RedSky actions.
 
 const MAX_LIMIT = 200;
 const TIMEOUT_MS = 8000;
@@ -115,32 +116,44 @@ export function sanitizeSearchTerm(term: string): string {
 
 type FetchLike = typeof fetch;
 
+// The signed-in person's access token. With `forceRefresh`, a new one from Twenty (the last one was refused).
+export type TwentyCredentials = (options: { forceRefresh: boolean }) => Promise<string>;
+
 export class TwentyCrmAdapter implements CrmAdapter {
   readonly provider = 'twenty';
 
   constructor(
     private readonly baseUrl: URL,
-    private readonly apiKey: string,
+    private readonly credentials: TwentyCredentials,
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
 
-  private async request(path: string, params: Record<string, string> = {}): Promise<unknown> {
-    const url = new URL(path, this.baseUrl);
-    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-    let response: Response;
+  private async send(url: URL, token: string): Promise<Response> {
     try {
-      response = await this.fetchImpl(url, {
-        headers: { Authorization: `Bearer ${this.apiKey}`, Accept: 'application/json' },
+      return await this.fetchImpl(url, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
         cache: 'no-store',
       });
     } catch {
       throw new CrmError('unreachable', 'The CRM did not respond');
     }
-    if (response.status === 401 || response.status === 403) throw new CrmError('unauthorized', 'The CRM rejected RedSky’s API key');
+  }
+
+  private async request(path: string, params: Record<string, string> = {}): Promise<unknown> {
+    const url = new URL(path, this.baseUrl);
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+    let response = await this.send(url, await this.credentials({ forceRefresh: false }));
+    // An access token can be refused before its expiry (revoked, signing key rotated): refresh once and retry.
+    if (response.status === 401) response = await this.send(url, await this.credentials({ forceRefresh: true }));
+    if (response.status === 401) throw new CrmError('unauthorized', 'Twenty refused your connection');
     if (response.status === 429) throw new CrmError('rate_limited', 'The CRM rate limit was reached');
     if (response.status === 404) return null;
-    if (!response.ok) throw new CrmError('bad_response', `The CRM returned ${response.status}`);
+    if (!response.ok) {
+      // Twenty reports a missing object permission as 400 or 403 with code PERMISSION_DENIED.
+      if (response.status === 403 || (await isPermissionDenied(response))) throw new CrmError('forbidden', 'Your Twenty role does not allow this');
+      throw new CrmError('bad_response', `The CRM returned ${response.status}`);
+    }
     return response.json();
   }
 
@@ -170,7 +183,7 @@ export class TwentyCrmAdapter implements CrmAdapter {
       await this.request('/rest/people', { limit: '1' });
       return 'ok';
     } catch (error) {
-      return error instanceof CrmError && error.kind === 'unauthorized' ? 'unauthorized' : 'unreachable';
+      return error instanceof CrmError && (error.kind === 'unauthorized' || error.kind === 'forbidden') ? 'unauthorized' : 'unreachable';
     }
   }
 
@@ -196,4 +209,9 @@ export class TwentyCrmAdapter implements CrmAdapter {
   listOpportunities(options: CrmListOptions = {}) {
     return this.list('opportunities', mapOpportunity, options);
   }
+}
+
+async function isPermissionDenied(response: Response): Promise<boolean> {
+  const body: unknown = await response.json().catch(() => null);
+  return JSON.stringify(body ?? {}).includes('PERMISSION_DENIED');
 }

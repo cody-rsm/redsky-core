@@ -42,7 +42,7 @@ flowchart LR
   OCR -->|"signed events"| WEB
   OCR --> OPG[("redsky-postgres<br/>database redsky_ocr")]
   OCR -->|"read"| DOCS
-  WEB -->|"REST / GraphQL<br/>as the user (decision 7)"| TW["twenty-server<br/>twenty-worker"]
+  WEB -->|"REST / GraphQL<br/>as each person (OAuth, decision 7)"| TW["twenty-server<br/>twenty-worker"]
   OCR -->|"attachments"| TW
   TW --> TPG[("Postgres")]
   TW --> R[("Redis")]
@@ -99,7 +99,6 @@ API, events, security and limits: [`services/ocr/README.md`](../services/ocr/REA
 
 ### Known gaps
 
-- **The Twenty adapter uses a shared API key** (`TWENTY_API_KEY`), so every RedSky user sees what that key's role sees. This conflicts with rule 2. It is acceptable only while Twenty holds no real client data, and is replaced by per-user access ([decision 7](DECISIONS.md#7-how-the-redsky-api-reads-twenty-as-the-signed-in-user)).
 - **Document sharing is "Only me" or "All RSM staff".** Team and deal-team visibility waits for team membership, which RedSky does not have yet (`Actor.teamIds`).
 - **Twenty attachments are read by `redsky-ocr` but not listed in Documents**, and SharePoint is not a source yet.
 - **Document search is full-text** (English), not semantic; embeddings and RedSky AI retrieval over documents come next.
@@ -204,7 +203,9 @@ The UI never sees Twenty shapes. `server/integrations/crm/types.ts` defines `Crm
 
 - maps Twenty v2.44 REST records (the `cody-rsm/redsky-twenty` fork) into those types with Zod;
 - treats every RSM custom field as optional;
-- uses Bearer API-key auth, cursor pagination and an 8-second timeout;
-- has a typed `CrmError`.
+- calls Twenty with the signed-in person's own token, with cursor pagination and an 8-second timeout;
+- has a typed `CrmError` (`unauthorized`, `forbidden`, `unreachable`, `rate_limited`, `bad_response`).
 
-It is read-only in this release, and inactive unless `TWENTY_API_URL` and `TWENTY_API_KEY` are set. The shared key is a known gap against rule 2 (see [Known gaps](#known-gaps)): replace it with per-user access before Twenty holds real data, and keep the normalized types, so the adapter can be swapped for RedSky's own services as areas move.
+Each person connects their Twenty account once ([decision 7](DECISIONS.md#7-how-the-redsky-api-reads-twenty-as-the-signed-in-user)). `twenty-connection.ts` runs Twenty's OAuth flow (authorization code with PKCE, through `openid-client`), checks that the Twenty account is the same person, and keeps the tokens encrypted in `redsky.twenty_connections`. It refreshes them on demand and revokes them on disconnect. `getCrmAccess(userId)` in `crm/index.ts` is the only way to get an adapter: it returns `not_configured`, `not_connected`, `reconnect`, or an adapter bound to that person. The routes are `/api/integrations/twenty/connect`, `/callback` and `/api/integrations/twenty` (status and disconnect).
+
+The adapter is read-only in this release, and inactive unless `TWENTY_API_URL`, `TWENTY_OAUTH_CLIENT_ID` and `TWENTY_OAUTH_CLIENT_SECRET` are set. Keep the normalized types, so the adapter can be swapped for RedSky's own services as areas move.

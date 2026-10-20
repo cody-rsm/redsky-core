@@ -3,6 +3,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { strengthTone } from '@/components/dashboard/strength';
 import { WidgetLoading } from '@/components/dashboard/widget-states';
+import { crmConnectHref } from '@/components/integrations/crm-connection';
 import { Avatar, normalizeTone } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import type { PeopleResponse } from '@/lib/api/contracts';
@@ -63,6 +64,31 @@ export function PeopleView() {
             </span>
             <div style={{ fontWeight: 600, color: 'var(--tx)' }}>People come from the RSM CRM</div>
             <div style={{ fontSize: 12.5, maxWidth: 360 }}>Once your administrator connects RedSky to the CRM, the contacts you’re authorized to see appear here.</div>
+          </div>
+        ) : null}
+        {first?.status === 'connect' ? (
+          <div className="empty">
+            <span className="lt lt-0" aria-hidden="true">
+              CR
+            </span>
+            <div style={{ fontWeight: 600, color: 'var(--tx)' }}>{first.reconnect ? 'Reconnect your Twenty account' : 'Connect your Twenty account'}</div>
+            <div style={{ fontSize: 12.5, maxWidth: 380 }}>
+              {first.reconnect
+                ? 'Twenty no longer accepts RedSky’s access for you. Reconnect to see your contacts again.'
+                : 'RedSky reads the CRM as you, so you see exactly the contacts your Twenty role allows. Connect once to continue.'}
+            </div>
+            <a className="btn btn-sm btn-p" href={crmConnectHref('/people')}>
+              {first.reconnect ? 'Reconnect Twenty' : 'Connect Twenty'}
+            </a>
+          </div>
+        ) : null}
+        {first?.status === 'forbidden' ? (
+          <div className="empty">
+            <span className="lt lt-0" aria-hidden="true">
+              CR
+            </span>
+            <div style={{ fontWeight: 600, color: 'var(--tx)' }}>Your CRM role doesn’t include people</div>
+            <div style={{ fontSize: 12.5, maxWidth: 380 }}>RedSky shows what your Twenty role allows. Ask a CRM administrator if you need access to contacts.</div>
           </div>
         ) : null}
         {first?.status === 'error' ? (

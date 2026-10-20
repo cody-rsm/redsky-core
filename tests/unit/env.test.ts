@@ -45,13 +45,23 @@ describe('parseConfig', () => {
     expect(parseConfig(env({ NODE_ENV: 'production', REDSKY_ENCRYPTION_KEY: key })).encryptionKey).toHaveLength(32);
   });
 
-  it('only enables the AI provider and CRM adapter with credentials', () => {
-    const bare = parseConfig(env({ NODE_ENV: 'production', AI_PROVIDER: 'anthropic' }));
-    expect(bare.ai.provider).toBe('none');
-    expect(bare.crm.provider).toBe('none');
-    const configured = parseConfig(env({ NODE_ENV: 'production', AI_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'k', TWENTY_API_URL: 'https://crm.example.com', TWENTY_API_KEY: 't' }));
-    expect(configured.ai.provider).toBe('anthropic');
-    expect(configured.crm.provider).toBe('twenty');
+  it('only enables the AI provider with credentials', () => {
+    expect(parseConfig(env({ NODE_ENV: 'production', AI_PROVIDER: 'anthropic' })).ai.provider).toBe('none');
+    expect(parseConfig(env({ NODE_ENV: 'production', AI_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'k' })).ai.provider).toBe('anthropic');
+  });
+
+  it('enables the CRM only through per-person OAuth, never a shared key', () => {
+    const base = { NODE_ENV: 'production', REDSKY_APP_URL: 'https://redsky.example.com', REDSKY_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'), TWENTY_API_URL: 'http://twenty-server.railway.internal:3000' };
+    const oauth = { TWENTY_PUBLIC_URL: 'https://crm.example.com', TWENTY_OAUTH_CLIENT_ID: 'client', TWENTY_OAUTH_CLIENT_SECRET: 'secret' };
+    const sharedKeyOnly = parseConfig(env({ ...base, TWENTY_API_KEY: 'all-access' }));
+    expect(sharedKeyOnly.crm.provider).toBe('none');
+    expect(sharedKeyOnly.crm.issues.join(' ')).toMatch(/TWENTY_API_KEY is no longer used/);
+    const configured = parseConfig(env({ ...base, ...oauth }));
+    expect(configured.crm).toMatchObject({ provider: 'twenty', oauth: { clientId: 'client' }, issues: [] });
+    expect(configured.crm.publicUrl?.origin).toBe('https://crm.example.com');
+    expect(parseConfig(env({ ...base, ...oauth, TWENTY_PUBLIC_URL: 'http://crm.example.com' })).crm.provider).toBe('none');
+    expect(parseConfig(env({ ...base, ...oauth, TWENTY_PUBLIC_URL: '' })).crm.issues).toEqual(['Set TWENTY_PUBLIC_URL to Twenty’s public https address']);
+    expect(parseConfig(env({ ...base, ...oauth, REDSKY_ENCRYPTION_KEY: '' })).crm.provider).toBe('none');
   });
 
   it('falls back to the firm time zone when the configured one is invalid', () => {

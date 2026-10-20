@@ -16,6 +16,7 @@ export async function GET() {
         database,
         auth: config.auth.mode === 'none' ? 'unconfigured' : 'configured',
         documents: config.documents.available ? 'configured' : 'unconfigured',
+        crm: config.crm.provider === 'twenty' ? 'configured' : 'unconfigured',
         mode: config.dataMode,
       },
     },

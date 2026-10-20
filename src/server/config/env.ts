@@ -35,6 +35,10 @@ const rawSchema = z.object({
   AI_MODEL: z.string().trim().default('claude-opus-5-5'),
   AI_EFFORT: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
   TWENTY_API_URL: optionalString,
+  TWENTY_PUBLIC_URL: optionalString,
+  TWENTY_OAUTH_CLIENT_ID: optionalString,
+  TWENTY_OAUTH_CLIENT_SECRET: optionalString,
+  // No longer used: read only to warn a deployment that still sets it (docs/DECISIONS.md 7).
   TWENTY_API_KEY: optionalString,
   REDSKY_TENANT_ID: z.string().trim().regex(/^[A-Za-z0-9._:@-]{1,128}$/).default('rsm'),
   DOCUMENTS_BUCKET: optionalString,
@@ -73,9 +77,20 @@ export type AppConfig = {
   };
   encryptionKey: Buffer | null;
   ai: { provider: 'anthropic' | 'none'; apiKey: string | null; model: string; effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
-  crm: { provider: 'twenty' | 'none'; baseUrl: URL | null; apiKey: string | null };
+  crm: CrmConfig;
   workstyle: { retainOriginal: boolean };
   documents: DocumentsConfig;
+};
+
+// RedSky reads Twenty as the signed-in person, with a token each person grants through Twenty's OAuth server
+// (docs/DECISIONS.md 7). `baseUrl` is where RedSky calls Twenty's API (its private address on Railway);
+// `publicUrl` is the address people's browsers use, which is also the OAuth issuer.
+export type CrmConfig = {
+  provider: 'twenty' | 'none';
+  baseUrl: URL | null;
+  publicUrl: URL | null;
+  oauth: { clientId: string; clientSecret: string } | null;
+  issues: string[];
 };
 
 export type DocumentStorageConfig = { bucket: string; endpoint: URL | null; region: string; accessKeyId: string; secretAccessKey: string; forcePathStyle: boolean };
@@ -137,7 +152,6 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
   }
 
   const encryptionKey = parseEncryptionKey(env.REDSKY_ENCRYPTION_KEY, isProduction, issues);
-  const crmUrl = parseUrl(env.TWENTY_API_URL, 'TWENTY_API_URL', issues);
   const documents = parseDocuments(env, isProduction);
 
   return {
@@ -156,10 +170,27 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
       model: env.AI_MODEL,
       effort: env.AI_EFFORT,
     },
-    crm: { provider: crmUrl && env.TWENTY_API_KEY ? 'twenty' : 'none', baseUrl: crmUrl, apiKey: env.TWENTY_API_KEY ?? null },
+    crm: parseCrm(env, { isProduction, appUrl, encryptionKey }),
     workstyle: { retainOriginal: env.WORKSTYLE_RETAIN_ORIGINAL },
     documents,
   };
+}
+
+function parseCrm(env: z.infer<typeof rawSchema>, context: { isProduction: boolean; appUrl: URL | null; encryptionKey: Buffer | null }): CrmConfig {
+  const problems: string[] = [];
+  const baseUrl = parseUrl(env.TWENTY_API_URL, 'TWENTY_API_URL', problems);
+  const publicUrl = env.TWENTY_PUBLIC_URL ? parseUrl(env.TWENTY_PUBLIC_URL, 'TWENTY_PUBLIC_URL', problems) : baseUrl;
+  const oauth = env.TWENTY_OAUTH_CLIENT_ID && env.TWENTY_OAUTH_CLIENT_SECRET ? { clientId: env.TWENTY_OAUTH_CLIENT_ID, clientSecret: env.TWENTY_OAUTH_CLIENT_SECRET } : null;
+  if (baseUrl && !oauth) problems.push('TWENTY_API_URL needs TWENTY_OAUTH_CLIENT_ID and TWENTY_OAUTH_CLIENT_SECRET');
+  // Tokens are stored encrypted, and Twenty redirects people back to REDSKY_APP_URL.
+  if (baseUrl && !context.encryptionKey) problems.push('The Twenty connection needs REDSKY_ENCRYPTION_KEY');
+  if (baseUrl && !context.appUrl) problems.push('The Twenty connection needs REDSKY_APP_URL');
+  if (publicUrl && context.isProduction && publicUrl.protocol !== 'https:' && !isLoopback(publicUrl)) {
+    problems.push(env.TWENTY_PUBLIC_URL ? 'TWENTY_PUBLIC_URL must use https in production' : 'Set TWENTY_PUBLIC_URL to Twenty’s public https address');
+  }
+  const ready = Boolean(baseUrl && publicUrl && oauth) && problems.length === 0;
+  const warnings = env.TWENTY_API_KEY ? ['TWENTY_API_KEY is no longer used: RedSky reads Twenty as each signed-in person. Remove it and revoke the key in Twenty.'] : [];
+  return { provider: ready ? 'twenty' : 'none', baseUrl, publicUrl, oauth, issues: [...problems, ...warnings] };
 }
 
 function parseDocuments(env: z.infer<typeof rawSchema>, isProduction: boolean): DocumentsConfig {
@@ -231,7 +262,8 @@ export type PublicConfig = {
   authMode: AuthMode;
   aiAvailable: boolean;
   aiSimulated: boolean;
-  crmConnected: boolean;
+  // Twenty is set up for this deployment; whether a person has connected it is in the viewer payload.
+  crmConfigured: boolean;
   workstyleStorageAvailable: boolean;
   documentsAvailable: boolean;
   timeZone: string;
@@ -244,7 +276,7 @@ export function getPublicConfig(): PublicConfig {
     authMode: config.auth.mode,
     aiAvailable: config.dataMode === 'demo' || config.ai.provider === 'anthropic',
     aiSimulated: config.dataMode === 'demo',
-    crmConnected: config.crm.provider === 'twenty',
+    crmConfigured: config.crm.provider === 'twenty',
     workstyleStorageAvailable: config.encryptionKey !== null,
     documentsAvailable: config.documents.available,
     timeZone: config.timeZone,

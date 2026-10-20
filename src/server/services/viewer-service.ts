@@ -10,6 +10,7 @@ import type { SessionUser } from '@/server/auth/session';
 import { getConfig, getPublicConfig } from '@/server/config/env';
 import { getDb } from '@/server/db/client';
 import { dashboardLayouts, employeeProfiles, integrationRequests, onboardingProgress, userPreferences, workstyleAssessments } from '@/server/db/schema';
+import { connectionStatus } from '@/server/integrations/crm/twenty-connection';
 
 export async function loadViewer(user: SessionUser): Promise<ViewerPayload> {
   const db = getDb();
@@ -74,6 +75,7 @@ export async function loadViewer(user: SessionUser): Promise<ViewerPayload> {
     onboarding: { currentStep: progress?.currentStep ?? 0, maxStep: progress?.maxStep ?? 0, completed: Boolean(progress?.completedAt) },
     integrations,
     workstyle: workstyleSummary,
+    crm: await connectionStatus(user.id),
     config: getPublicConfig(),
     demo:
       config.dataMode === 'demo'
