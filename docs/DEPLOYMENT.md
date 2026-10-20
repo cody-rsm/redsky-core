@@ -74,6 +74,7 @@ openssl rand -base64 32    # REDSKY_ENCRYPTION_KEY  (losing it makes stored Work
 
 ```env
 NODE_ENV=production
+PORT=3000
 REDSKY_DATABASE_URL=${{redsky-postgres.DATABASE_URL}}
 REDSKY_DATA_MODE=production
 REDSKY_APP_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
@@ -90,12 +91,8 @@ LOG_LEVEL=info
 
 - `REDSKY_DATABASE_URL` uses the **private** URL that Railway's reference variable resolves to. Check the reference shows a resolved value (not red) in the Variables list.
 - `REDSKY_APP_URL` must match the domain from step 8. The reference fills in once a domain exists. With a custom domain later, set it explicitly (`https://redsky.example.com`).
-- **Entra app registration** (Microsoft Entra admin center → **App registrations → New registration**):
-  - Single tenant.
-  - Platform **Web**, redirect URI `https://<redsky domain>/api/auth/entra/callback`.
-  - Create a client secret.
-  - Optionally create an **App role** named `RedSky.Admin` and assign administrators.
-  - API permission: Microsoft Graph delegated `User.Read` (used once at sign-in to prefill the profile).
+- `PORT=3000` pins the port the server listens on, so the domain in step 8 can target it. Without it, Railway injects its own `PORT`, and the domain's target port has to match whatever that is.
+- Leave the three `AUTH_ENTRA_*` values empty for now. The Entra registration needs RedSky's domain, which you generate in step 8.
 - Until all four auth values (tenant, client ID, secret, session secret) are set, RedSky shows "Sign-in isn't configured" and every API returns 401.
 - **Never set** `AUTH_DEV_ENABLED` on Railway. It is ignored by the production image anyway.
 - **RedSky AI** (optional, after RSM approves a provider): set `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY=<key>`. Without them, production shows "RedSky AI isn't configured" and sends nothing anywhere.
@@ -117,7 +114,7 @@ The repository includes `railway.json` with these settings. Railway has deprecat
 | Deploy → Serverless (app sleeping) | off |
 | Networking → Public | none yet (step 8) |
 
-- **Port and host.** The server listens on the `PORT` Railway injects and binds `0.0.0.0` (set in the image). No port variable is needed.
+- **Port and host.** The server binds `0.0.0.0` (set in the image) and listens on `PORT`, which step 5 pins to `3000`.
 - **Private network.** `redsky-web` reaches `redsky-postgres` over Railway's private network through the reference variable. It reaches Twenty only if you configure step 10.
 - **Deploy order.** `redsky-postgres` must be running before `redsky-web` deploys. The pre-deploy command fails, and the deployment is not promoted, if the database is unreachable.
 
@@ -136,13 +133,21 @@ Verify:
 1. `redsky-web` → **Deployments → latest → Deploy logs** (pre-deploy section) shows `"message":"Migrations complete"`.
 2. Optionally, open `redsky-postgres` → **Data**. You should see the `redsky` schema with tables such as `users`, `employee_profiles`, `onboarding_progress`, `user_preferences` and `audit_events`.
 
-## 8. Generate a domain, only once access is protected
+## 8. Generate a domain, then turn on sign-in
 
-Do this **after** the deployment is healthy and the four Entra variables plus `REDSKY_SESSION_SECRET` are set.
+RedSky fails closed: without the Entra variables, the login page says sign-in isn't configured and every API returns 401. It is therefore safe to give it a domain before sign-in works. The Entra registration needs that domain anyway.
 
-1. `redsky-web` → **Settings → Networking → Generate Domain**. Railway asks for the target port; enter the port shown in the deploy logs (`- Local: http://localhost:<port>`), normally `8080` on Railway.
-2. Update the Entra redirect URI to `https://<generated domain>/api/auth/entra/callback`.
-3. Open `https://<domain>/api/health`. Expect `{"status":"ok", … "auth":"configured","mode":"production"}`. If `auth` reads `unconfigured`, sign-in is still off. Leave the domain until it is fixed (RedSky stays locked meanwhile).
+1. Once the deployment is healthy: `redsky-web` → **Settings → Networking → Generate Domain**, target port `3000`.
+2. Open `https://<domain>/api/health`. Expect `"database":"ok"` and `"auth":"unconfigured"`. Open `https://<domain>/`; it should show the locked sign-in page.
+3. **Register RedSky in Entra** (Microsoft Entra admin center → **App registrations → New registration**):
+   - Name `RedSky`; **Accounts in this organizational directory only** (single tenant).
+   - Redirect URI: platform **Web**, `https://<domain>/api/auth/entra/callback`.
+   - **Certificates & secrets → New client secret.** Copy the secret *value* immediately into the password manager.
+   - **API permissions:** keep Microsoft Graph delegated `User.Read` (used once at sign-in to prefill the profile).
+   - Optional: **App roles → Create app role** `RedSky.Admin` (allowed member types: Users/Groups), then assign administrators under **Enterprise applications → RedSky → Users and groups**.
+   - From **Overview**, copy the **Directory (tenant) ID** and **Application (client) ID**.
+4. In `redsky-web` → **Variables**, fill `AUTH_ENTRA_TENANT_ID`, `AUTH_ENTRA_CLIENT_ID`, `AUTH_ENTRA_CLIENT_SECRET`, then deploy the staged changes.
+5. `/api/health` should now show `"auth":"configured"`. If it still reads `unconfigured`, check the deploy logs: configuration problems are logged without their values.
 
 ## 9. Test the deployment
 

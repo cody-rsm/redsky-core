@@ -1,5 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
+import { logger } from '@/server/logging/logger';
 
 // Server-only configuration. Nothing here is ever sent to the browser; client code receives only the derived,
 // non-secret flags exposed through getPublicConfig().
@@ -72,7 +73,11 @@ const MIN_SECRET_LENGTH = 32;
 let cached: AppConfig | null = null;
 
 export function getConfig(): AppConfig {
-  if (!cached) cached = parseConfig(process.env);
+  if (!cached) {
+    cached = parseConfig(process.env);
+    // Issues name variables only, never their values, so they are safe to log for deploy diagnostics.
+    if (cached.auth.issues.length > 0) logger.warn('Configuration incomplete', { authMode: cached.auth.mode, issues: cached.auth.issues });
+  }
   return cached;
 }
 
