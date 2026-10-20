@@ -4,12 +4,16 @@ RedSky is added to the **existing** Railway project as two new services:
 
 | New service | Source | Role |
 |---|---|---|
-| `redsky-web` | GitHub `cody-rsm/RedSky`, branch `main` (`staging` for a staging environment), root `Dockerfile` | The Next.js app (UI + API). |
+| `redsky-web` | GitHub `cody-rsm/redsky-core`, branch `main` (`staging` for a staging environment), root `Dockerfile` | The Next.js app (UI + API). |
 | `redsky-postgres` | Railway PostgreSQL | RedSky's own data: profiles, onboarding, preferences, layouts, Workstyle, tasks, AI conversations, audit log. |
+| `redsky-ocr` (optional, §13) | Same repository, root directory `services/ocr` | Document OCR and extraction. Private. Its own `redsky_ocr` database on `redsky-postgres`. |
+| `redsky-documents` (with §13) | Railway Storage Bucket | Originals uploaded in RedSky. Nothing writes to it until the web app's document upload exists. |
 
 `twenty-server`, `twenty-worker`, `Postgres`, `Redis` and `Bucket` are **not changed** by any step below. RedSky never connects to Twenty's `Postgres`. It reaches Twenty only through Twenty's REST API (step 10), and only once you add credentials.
 
 > **Approval boundary.** This guide describes actions *you* take in GitHub and Railway. Nothing here was run against Railway by the build process.
+
+> **Repository rename.** The repository was renamed from `cody-rsm/RedSky` to `cody-rsm/redsky-core`, and the Twenty repository from `cody-rsm/rsm-crm` to `cody-rsm/redsky-twenty`. GitHub redirects the old names. On services created before the rename, check **Settings → Source** shows the new name, and reconnect the repository if it does not.
 
 > **Verified locally (Docker):**
 > - The image builds.
@@ -18,13 +22,13 @@ RedSky is added to the **existing** Railway project as two new services:
 > - `node dist/migrate.mjs` initializes an empty database, is safe to re-run, and **refuses a database containing Twenty's schemas** (exit code 2).
 > - Development sign-in returns 404 in the production image.
 >
-> **Not verified:** the Railway-specific settings below. Railway was not reachable from the build environment, so they come from Railway's documentation and from `rsm-crm/rsm/deploy/railway/README.md`.
+> **Not verified:** the Railway-specific settings below. Railway was not reachable from the build environment, so they come from Railway's documentation and from `redsky-twenty/rsm/deploy/railway/README.md`.
 
 ---
 
 ## 1. Inspect the project and prepare the repository
 
-1. Clone `cody-rsm/RedSky` and confirm the default branch is `main`. GitHub → repository → **Settings → General → Default branch**.
+1. Clone `cody-rsm/redsky-core` and confirm the default branch is `main`. GitHub → repository → **Settings → General → Default branch**.
 2. Locally, run the checks that CI runs:
    ```bash
    npm ci
@@ -49,7 +53,7 @@ RedSky is added to the **existing** Railway project as two new services:
 ## 3. Add `redsky-web` to the existing project
 
 1. Open the Railway dashboard → the existing project (the one with `twenty-server`) → the environment you are deploying to.
-2. Click **+ New → GitHub Repo → `cody-rsm/RedSky`**. If the repository is missing, grant the Railway GitHub app access to it under **Configure GitHub App**.
+2. Click **+ New → GitHub Repo → `cody-rsm/redsky-core`**. If the repository is missing, grant the Railway GitHub app access to it under **Configure GitHub App**.
 3. Rename the new service to `redsky-web`: open the service → **Settings → Service name**.
 4. Railway starts a first build immediately. It will fail its health check until steps 4–6 are done. That is harmless: the service has no public domain yet. You can also open **Deployments** and remove the deployment.
 5. Under **Settings → Source**:
@@ -103,7 +107,7 @@ LOG_LEVEL=info
 
 ## 6. Build, start, health check, port, private network
 
-The repository includes `railway.json` with these settings. Railway has deprecated config files for new services (see `rsm-crm/rsm/deploy/railway/README.md`), so **set them in the dashboard too**: `redsky-web` → **Settings**.
+The repository includes `railway.json` with these settings. Railway has deprecated config files for new services (see `redsky-twenty/rsm/deploy/railway/README.md`), so **set them in the dashboard too**: `redsky-web` → **Settings**.
 
 | Setting | Value |
 |---|---|
@@ -168,10 +172,12 @@ Do this **after** the deployment is healthy and the four Entra variables plus `R
 
 ## 10. Optional: Twenty API integration
 
-Do this only after RSM provides a verified endpoint and credentials. Note `rsm-crm`'s Railway README: the Twenty deployment is currently **staging / pre-production**, with no real client data.
+Do this only after RSM provides a verified endpoint and credentials. Note `redsky-twenty`'s Railway README: the Twenty deployment is currently **staging / pre-production**, with no real client data.
+
+The shared API key below is a stopgap: every RedSky user sees what its role sees, which conflicts with [`DECISIONS.md`](DECISIONS.md) 2. Use it only while Twenty holds no real client data, until per-user access replaces it (decision 7).
 
 1. In Twenty: **Settings → APIs & Webhooks → Create API key**. Give it a dedicated, read-only role if roles are configured. Store it in the password manager.
-2. Find Twenty's private address: `twenty-server` → **Settings → Networking → Private Networking** shows `twenty-server.railway.internal`. Find its port from `twenty-server` → **Variables** (`NODE_PORT`; `rsm-crm` documents `PORT=3000`). Verify both; don't assume them.
+2. Find Twenty's private address: `twenty-server` → **Settings → Networking → Private Networking** shows `twenty-server.railway.internal`. Find its port from `twenty-server` → **Variables** (`NODE_PORT`; `redsky-twenty` documents `PORT=3000`). Verify both; don't assume them.
 3. On `redsky-web` → **Variables**, add:
    ```env
    TWENTY_API_URL=http://twenty-server.railway.internal:<NODE_PORT>
@@ -190,14 +196,87 @@ Do this only after RSM provides a verified endpoint and credentials. Note `rsm-c
 
 ## 12. How later pushes deploy, and safeguards
 
-- `redsky-web` watches `cody-rsm/RedSky` **only**. A push to its branch (`main`) rebuilds and redeploys `redsky-web` and nothing else. Pushes to `rsm-crm` deploy only the Twenty services, and the reverse holds too.
+- `redsky-web` (and `redsky-ocr`, once it exists) watch `cody-rsm/redsky-core` **only**. A push to `main` rebuilds and redeploys them and nothing else; pushes to `cody-rsm/redsky-twenty` deploy only the Twenty services. Both RedSky services build from this repository, so give each its watch paths (below and §13): without them, a commit that touches only `services/ocr` also redeploys `redsky-web`, and the reverse.
 - Recommended safeguards:
   - Branch protection on `main` (step 2) with the `CI` workflow required.
   - Merge to `main` only from `staging`, after testing a `staging` deployment.
   - Optionally a second Railway environment that tracks `staging`, with its own `redsky-postgres`.
   - In `redsky-web` → **Settings → Source**, enable **Wait for CI**, so Railway deploys only commits whose GitHub checks passed.
-  - Optionally add **Watch Paths** (`/src/**`, `/public/**`, `/drizzle/**`, `/scripts/**`, `/package.json`, `/package-lock.json`, `/Dockerfile`, `/next.config.ts`), so documentation-only commits don't redeploy.
+  - Optionally add **Watch Paths** (`/src/**`, `/public/**`, `/drizzle/**`, `/scripts/**`, `/package.json`, `/package-lock.json`, `/Dockerfile`, `/next.config.ts`), so documentation-only and `services/` commits don't redeploy it.
   - Keep Railway project membership limited. Rotate `REDSKY_SESSION_SECRET` by replacing it (this signs everyone out). Never rotate `REDSKY_ENCRYPTION_KEY` without a re-encryption plan.
+
+## 13. Optional: `redsky-ocr`
+
+`redsky-ocr` extracts text, tables and page structure from documents. Design, API, events and security model: [`services/ocr/README.md`](../services/ocr/README.md). Status: built and tested, **not deployed**. Nothing below has been applied to the Railway project.
+
+Until the web app stores uploads and calls the service, deploying it is useful only for files attached in Twenty (the `twenty` source). Deploy it then, or wait for the web app's document work; the steps are the same.
+
+### What it adds and reuses
+
+| | |
+|---|---|
+| New | One service, `redsky-ocr` (API and worker in one container), and the `redsky-documents` bucket |
+| Reused | `redsky-postgres` (a separate `redsky_ocr` database and login on the same server), `twenty-server` for its attachments while Twenty owns CRM records |
+| Not needed | Redis (the job queue is a Postgres table), any outside OCR or AI service. Twenty's `Postgres` and `Bucket` are never touched |
+
+### Service settings
+
+| Setting | Value |
+|---|---|
+| Source | GitHub `cody-rsm/redsky-core`, branch `main` |
+| Root directory | `/services/ocr` |
+| Builder | **Settings → Build → Builder: Dockerfile**, Dockerfile Path `Dockerfile` (relative to the root directory) |
+| Watch paths | `/services/ocr/**` |
+| Custom start command | empty (the image runs `redsky-ocr serve`) |
+| Healthcheck path | `/ready` |
+| Public networking | **none**. `redsky-web` and Twenty reach it at `redsky-ocr.railway.internal:8080`. Browsers never call it |
+| Resources | Start with a limit of **2 vCPU and 4 GB** (Settings → Deploy → Resource limits). Idle use is about 150 MB; a job with Docling's layout models peaks around 1.5 to 2.5 GB (estimate; measure with the benchmark after the first build) |
+| Replicas | 1 |
+| Serverless (app sleeping) | off: webhooks would be lost while it sleeps |
+| Variables | [`services/ocr/railway.env.example`](../services/ocr/railway.env.example), plus the secrets below |
+
+On `redsky-web`, add the watch paths from §12 if you have not, so OCR commits do not redeploy it.
+
+**Build time and size.** The first build downloads torch (CPU) from PyTorch's index and the Docling layout and TableFormer models from Hugging Face; the running service never downloads anything. Expect an image of roughly 3 GB with models (about 1 GB without, measured). The build log prints the model commits, which are also in `/opt/models/manifest.json`; copy them into `LAYOUT_MODEL_REVISION` and `TABLEFORMER_MODEL_REVISION` to pin later builds. If the build cannot reach either source, set `WITH_DOCLING_MODELS=false`: PDFs and images then go through the Tesseract-only engine (no table structure), and Office files are unaffected.
+
+### Secrets
+
+Set these on `redsky-ocr` as **sealed** variables:
+
+| Variable | How to create it |
+|---|---|
+| `REDSKY_OCR_DB_PASSWORD` | `openssl rand -hex 24`. Used in `REDSKY_OCR_DATABASE_URL` |
+| `REDSKY_OCR_SERVICE_TOKENS` | `openssl rand -hex 32`. The same value goes on `redsky-web` when its OCR client exists. To rotate, add a second token after a comma, move `redsky-web` to it, then remove the first |
+| `REDSKY_OCR_EVENTS_URL`, `REDSKY_OCR_EVENTS_SECRET` | Only once `redsky-web` has an event receiver: its private URL, and `openssl rand -hex 32` shared with it |
+| `REDSKY_OCR_TWENTY_API_KEY` | Step 4 below |
+| `REDSKY_OCR_TWENTY_WEBHOOK_SECRET` | `openssl rand -hex 32`, without a trailing newline. Also pasted into Twenty's webhook (step 5) |
+
+### First deployment
+
+1. **Bucket.** **+ New → Bucket**, named exactly `redsky-documents`. The variable template references its `BUCKET`, `ENDPOINT`, `REGION`, `ACCESS_KEY_ID` and `SECRET_ACCESS_KEY`. Only `redsky-web` and `redsky-ocr` reference it. Check whether Railway can issue a read-only credential for `redsky-ocr`; if it cannot, both services share the bucket's credential, and the service's key-prefix check (`REDSKY_OCR_STORAGE_KEY_PREFIX`) is what limits it.
+2. **Twenty services** (for the `twenty` source). Add `OUTBOUND_HTTP_ALLOWED_INTERNAL_HOSTS=redsky-ocr.railway.internal` to `twenty-server` and `twenty-worker` (the worker sends webhooks). Twenty's SSRF protection otherwise refuses private addresses; this opens exactly one host. Record it in `redsky-twenty`'s `rsm/deploy/railway/common.env.example` when you apply it.
+3. **Create the service** as an empty service named exactly `redsky-ocr` (the private hostname comes from the name), set its settings and variables, connect the repository and deploy. On this first start `REDSKY_OCR_ADMIN_DATABASE_URL` lets it create the `redsky_ocr` login and database on `redsky-postgres`; once `/ready` answers, **delete that variable** and redeploy, so the running service holds no superuser credentials.
+4. **Twenty API key.** In Twenty, **Settings → Roles → Create role** `RedSky OCR`: no access to all records; object permissions **read only** on Attachments, Companies, People, Opportunities, Notes and Tasks, and on every custom object that can hold files (Twenty hides an attachment whose parent record the caller cannot read); no settings or tool permissions; assignable to API keys only. Then **Settings → APIs & Webhooks → Create API key** `redsky-ocr` with that role and a one-year expiry. Paste the key into `REDSKY_OCR_TWENTY_API_KEY`.
+5. **Twenty webhook.** **Settings → APIs & Webhooks → Create webhook**: URL `http://redsky-ocr.railway.internal:8080/api/v1/webhooks/twenty`, events on Attachments (created, deleted, destroyed, restored, or all), secret `REDSKY_OCR_TWENTY_WEBHOOK_SECRET`.
+6. **Check.** Upload a file on any company's Files tab in Twenty. Within a minute the service log shows `job finished` with `outcome: completed`. Logs contain ids and timings only.
+
+Twenty neither retries webhooks nor sends them while it is rate-limiting, or for records not every role may see. A sweep every ten minutes (`REDSKY_OCR_RECONCILE_INTERVAL_SECONDS`) lists recent attachments with the API key and queues any the webhook missed. Attachments from before the deployment are not processed unless you ask: in the service's shell (`railway ssh`), `redsky-ocr backfill --since 2026-01-01`.
+
+### Rollback and removal
+
+- A failed health check never replaces the running deployment. To go back, redeploy the last good deployment of `redsky-ocr`; this affects nothing else.
+- Migrations are additive. To remove the service entirely: delete the Twenty webhook and the SSRF allow-list entry, delete `redsky-ocr`, and drop the `redsky_ocr` database and login on `redsky-postgres`.
+
+### Cost and scaling
+
+Railway bills usage. At an idle footprint of about 150 MB and near-zero CPU, the service costs a few dollars a month; each job adds CPU-seconds and memory for its duration (seconds to a few minutes). Check Railway's current prices before relying on any figure. There are no per-page or per-document fees.
+
+| Need | Change |
+|---|---|
+| More documents at once | `REDSKY_OCR_WORKER_CONCURRENCY` (each job is one process; about 2 GB each with layout models) and the resource limit |
+| Keep the API responsive under heavy OCR | Run a second service from the same source with start command `redsky-ocr worker` and no healthcheck, and set `REDSKY_OCR_WORKER_ENABLED=false` on `redsky-ocr`. Both share the queue in Postgres |
+| Difficult layouts and handwriting | Granite Docling on GPU hardware RSM controls behind an OpenAI-compatible endpoint, then `REDSKY_OCR_GRANITE_DOCLING_MODE=remote` and `REDSKY_OCR_GRANITE_DOCLING_API_URL`. Not provisioned |
+| Malware scanning | A `clamav` service (about 1.5 to 3 GB RAM for signatures) and `REDSKY_OCR_CLAMAV_HOST=clamav.railway.internal` |
 
 ---
 
@@ -219,3 +298,6 @@ Do this only after RSM provides a verified endpoint and credentials. Note `rsm-c
 | Outlook, Teams, SharePoint, LegiStorm and other connectors | **Not implemented**: "Coming soon" with notify list |
 | Scheduled `redsky-postgres` backups | **Unconfigured**: enable before real data |
 | Custom domain | **Unconfigured** |
+| `redsky-ocr` image build, tests, Twenty attachment path | **Verified locally** (Docker, and against a local Twenty 2.44) |
+| `redsky-ocr` and `redsky-documents` on Railway | **Not created**: needs approval and your action (§13) |
+| Web app document upload, OCR client and event receiver | **Not implemented** |

@@ -1,27 +1,33 @@
 # redsky-ocr
 
-RedSky's document extraction service. It turns files attached to RedSky records (PDFs, scans, photos, Word, PowerPoint and Excel files) into page-referenced text, Markdown, tables and retrieval chunks. Everything runs on CPU inside the service: no document content goes to an outside OCR or AI service, and there are no per-page fees.
+RedSky's document extraction service: Layer 6 (Document & OCR) in [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#platform-structure). It turns PDFs, scans, photos, Word, PowerPoint and Excel files into page-referenced text, Markdown, tables and retrieval chunks. Everything runs on CPU inside the service: no document content goes to an outside OCR or AI service, and there are no per-page fees.
 
-It is a side service in the sense of [`RSM_ARCHITECTURE.md`](../../../RSM_ARCHITECTURE.md) §3.5 and §8.1: Python, outside Twenty, talking to Twenty only through its public APIs. No Twenty code was changed for it.
+It is a private service. The RedSky API (`redsky-web`) calls it; browsers never do. It moved here from `cody-rsm/redsky-twenty` (formerly `rsm-crm`, `rsm/services/redsky-ocr`) with its history.
 
 ## How it fits
 
 ```mermaid
 flowchart LR
-  USER["RedSky user"] -->|"upload in the Files tab"| TW["twenty-server"]
-  USER -.->|"later: RedSky UI, bearer token"| OCR
-  TW -->|"attachment.* webhook, HMAC-signed<br/>(private network)"| OCR["redsky-ocr<br/>API + worker"]
-  OCR -->|"who is this token? may they read<br/>this attachment? (user's own token)"| TW
-  OCR -->|"fetch the file<br/>(read-only API key)"| TW
-  TW --> BUCKET[("Bucket<br/>original files")]
-  OCR --> PG[("Postgres<br/>database redsky_ocr")]
+  USER["RedSky user"] --> API["redsky-web<br/>RedSky API"]
+  API -->|"1. store the original"| BUCKET[("redsky-documents<br/>bucket")]
+  API -->|"2. POST /api/v1/documents<br/>service token + tenant + user"| OCR["redsky-ocr<br/>API + worker"]
+  OCR -->|"3. read the original"| BUCKET
+  OCR -->|"4. document.completed / failed<br/>signed event"| API
+  API -->|"5. read results"| OCR
+  TW["twenty-server<br/>(while it owns CRM records)"] -->|"attachment.* webhook"| OCR
+  OCR -->|"fetch attachment<br/>(read-only API key)"| TW
+  OCR --> PG[("redsky-postgres<br/>database redsky_ocr")]
   OCR -->|"one sandboxed process per job"| ENG["Tesseract / Docling /<br/>Granite Docling (off)"]
 ```
 
-- **Originals stay in Twenty.** A document here is always a Twenty attachment, stored in the existing Bucket. This service keeps only what it derives: text, Markdown, tables, chunks, Docling's document model and processing state.
-- **Twenty decides who sees what.** Every read re-checks, with the caller's own token, that Twenty still lets them read the source attachment. Twenty in turn hides an attachment whose parent record the caller cannot read. Extracted text therefore follows the file's permissions, including RSM access control (deal walls) when it lands in Twenty's query path. Anything the caller cannot see is reported as not found.
-- **Ingestion is automatic.** Twenty sends `attachment.created` to the service, which queues the file. `attachment.deleted` and `attachment.destroyed` purge everything derived from it. Twenty does not retry webhooks and rate-limits them, so a sweep every `REDSKY_OCR_RECONCILE_INTERVAL_SECONDS` (600) lists recent attachments with the service's API key and queues any that were missed. Files from before deployment are a deliberate choice: `redsky-ocr backfill --since 2026-01-01`.
-- **Reused infrastructure:** Twenty (identity, permissions, file storage, upload UI), the existing Postgres server (a separate database), Railway. **New:** one Railway service. No Redis, no second bucket, no queue product: the queue is a Postgres table.
+The rules it follows are the platform's ([`docs/DECISIONS.md`](../../docs/DECISIONS.md) 1 to 4):
+
+- **The RedSky API decides who may see what.** It calls with a service token and names the tenant and the signed-in user (`X-RedSky-Tenant-Id`, `X-RedSky-User-Id`). This service trusts that decision and scopes every query to the tenant. It keeps no permission model of its own.
+- **Originals stay with their owner.** A document is a reference to a *source*: a key in the RedSky documents bucket (`storage`), or a Twenty attachment (`twenty`). This service only reads originals and keeps what it derives: text, Markdown, tables, chunks, Docling's document model and processing state.
+- **The contract is HTTP.** The versioned API below, plus signed "document finished" events back to the RedSky API. There is no shared queue between the TypeScript and Python code: the job queue is a Postgres table private to this service.
+- **Links are labels, not permissions.** A document records the records it belongs to (`{system, object, id}`, for example `twenty/company/<uuid>`), so the API can list a company's documents. Access is never derived from them.
+
+While Twenty owns CRM records, files people attach in Twenty are picked up too: Twenty sends `attachment.created` to the service, and a sweep every `REDSKY_OCR_RECONCILE_INTERVAL_SECONDS` (600) lists recent attachments and queues any whose webhook was missed (Twenty neither retries webhooks nor sends them while rate-limiting). `attachment.deleted` and `attachment.destroyed` purge everything derived from the file. Attachments from before deployment are a deliberate choice: `redsky-ocr backfill --since 2026-01-01`.
 
 ## Extraction
 
@@ -41,7 +47,9 @@ One engine runs per document, chosen by `auto` routing or named by the caller:
 
 After extraction, quality checks flag empty output, mostly blank pages, garbled text and mean OCR confidence below `REDSKY_OCR_OCR_MIN_CONFIDENCE`. Flagged documents end as `needs_review` instead of `completed`.
 
-Files whose name carries the RSM Deal System's `_NOAI` tag are recorded but never extracted, and cannot be reprocessed (§12.7: nobody can waive `_NOAI`).
+Files whose name carries the RSM Deal System's `_NOAI` tag are recorded but never extracted, and cannot be reprocessed (nobody can waive `_NOAI`).
+
+OCRmyPDF is not used. Docling and Tesseract already cover extraction; OCRmyPDF would only add searchable-PDF copies, and it depends on Ghostscript (AGPL or commercial), which waits on the AGPL decision ([`docs/DECISIONS.md`](../../docs/DECISIONS.md) 6).
 
 ### Model and dependency provenance
 
@@ -56,10 +64,11 @@ RSM excludes Chinese-developed OCR and foundation models. What runs here:
 | Tesseract 5.3.4 and `eng` model | HP, then Google; Ubuntu packages | Apache-2.0 | |
 | pypdfium2 / PDFium | Google | Apache-2.0 / BSD-3 | |
 | torch, torchvision (CPU builds) | Meta / Linux Foundation | BSD-3 | From PyTorch's own index |
+| boto3 / botocore | Amazon | Apache-2.0 | Reads originals from the bucket (S3 API) |
 | FastAPI, uvicorn, httpx, psycopg | various | MIT, BSD-3, BSD-3, LGPL-3.0 | psycopg is used as an unmodified library |
 
 Guards, not just intentions:
-- `policy.py` refuses to start the service if `rapidocr`, `paddleocr`, `paddlepaddle`, `paddlex`, `qwen-vl-utils`, `modelscope`, `mineru`, `magic-pdf`, `deepseek-ocr` or `easyocr` is installed, or if the model folder holds anything not on its allow-list. `tests/test_policy.py` checks the same.
+- `policy.py` refuses to start the service if `rapidocr`, `paddleocr`, `paddlepaddle`, `paddlex`, `qwen-vl-utils`, `modelscope`, `mineru`, `magic-pdf`, `deepseek-ocr` or `easyocr` is installed, or if the model folder holds anything not on its allow-list. `tests/test_policy.py` and CI check the same.
 - The OCR engine is always named (`TesseractCliOcrOptions`). Docling's automatic choice would pick RapidOCR or EasyOCR if either were ever present.
 - Granite Docling is the only VLM preset the code can select; Docling's Qwen, DeepSeek-OCR, GOT-OCR and MinerU presets are unreachable.
 - `scripts/download_models.py` fetches named repositories only. Docling's own downloader is not used: its defaults also fetch RapidOCR weights.
@@ -67,105 +76,154 @@ Guards, not just intentions:
 
 ## API
 
-All `/api/v1` endpoints except the webhook need `Authorization: Bearer <RedSky access token>`: the same token the Twenty web app holds. API keys are refused, since access is decided per user. Responses use Twenty's camelCase.
+Every `/api/v1` endpoint except the webhook needs `Authorization: Bearer <token>`. Responses use camelCase.
+
+| Caller | Token | Also sends | Sees |
+|---|---|---|---|
+| The RedSky API | One of `REDSKY_OCR_SERVICE_TOKENS` | `X-RedSky-Tenant-Id`, `X-RedSky-User-Id` (recorded as the uploader or requester) | Everything in that tenant. The API has already decided the user may |
+| A Twenty user (only with `REDSKY_OCR_ACCEPT_TWENTY_TOKENS=true`) | Their Twenty access token | | Twenty attachments Twenty lets them read, re-checked on every request. Never `storage` documents |
+
+Twenty API keys are refused: access is decided per user.
 
 | Method and path | Purpose |
 |---|---|
-| `POST /api/v1/documents` | JSON `{"attachmentId", "engine"?}` registers an existing attachment. Multipart `file`, `linkedObject` (`company`, `person`, `opportunity`, any object name), `linkedRecordId`, `engine`? stores the file in Twenty as an attachment on that record, with the caller's permissions, then registers it. `202` when queued, `200` when it already existed |
-| `GET /api/v1/documents` | List, filtered by `attachmentId`, `linkedObject`, `linkedRecordId`, `status`; `limit` up to 100 |
-| `GET /api/v1/documents/{id}` | Metadata, status, latest and current extraction, quality report, errors |
+| `POST /api/v1/documents` | JSON `{"source": {"system": "storage" \| "twenty", "id"}, "filename"?, "links"?, "engine"?}` registers a document and queues it. `storage`: the RedSky API only; `id` is the bucket key under `REDSKY_OCR_STORAGE_KEY_PREFIX`, `filename` is required, `links` are up to 20 `{system, object, id}`. `twenty`: `id` is an attachment id; links come from Twenty. `202` when created, `200` when it already existed |
+| `GET /api/v1/documents` | List, filtered by `sourceSystem`, `sourceId`, `linkSystem`, `linkObject`, `linkId`, `status`; `limit` up to 100 |
+| `GET /api/v1/documents/{id}` | Metadata, links, status, latest and current extraction, quality report, errors |
+| `DELETE /api/v1/documents/{id}` | The RedSky API only. Purges everything derived from the document (not the original). `204` |
 | `GET /api/v1/documents/{id}/content` | `format=json` (default: Markdown, text and pages with methods and confidence), `markdown` or `text`; `download=true` for a file. `409 CONTENT_NOT_READY` until the first extraction finishes |
 | `GET /api/v1/documents/{id}/tables` | Tables as cell grids and Markdown, with page numbers |
-| `GET /api/v1/documents/{id}/chunks` | Retrieval chunks (about 1,500 characters) with heading path and page range, for later embeddings and cited answers |
+| `GET /api/v1/documents/{id}/chunks` | Retrieval chunks (about 1,500 characters) with heading path and page range, for embeddings and cited answers. Carries `noAi` |
 | `POST /api/v1/documents/{id}/reprocess` | `{"engine"}`. `409 EXTRACTION_IN_PROGRESS` if another engine is already queued, `422 ENGINE_UNAVAILABLE` if that engine is off. The previous result stays readable until the new one completes |
-| `GET /api/v1/search?q=` | Full-text search (Postgres, English) over current extractions, with page numbers and highlighted snippets, filtered to what the caller can see |
+| `GET /api/v1/search?q=` | Full-text search (Postgres, English) over current extractions in the tenant, with page numbers and highlighted snippets |
 | `GET /api/v1/engines` | Which engines and formats are usable in this deployment |
 | `POST /api/v1/webhooks/twenty` | Twenty webhook receiver. HMAC-SHA256 over `timestamp:body` (`X-Twenty-Webhook-Signature`, `X-Twenty-Webhook-Timestamp`); requests older than five minutes are refused. 404 when no secret is configured |
-| `GET /health`, `GET /ready` | Liveness; readiness (database and Tesseract) |
+| `GET /health`, `GET /ready` | Liveness; readiness (database and Tesseract), with the configured sources listed |
 
 OpenAPI: `GET /api/v1/openapi.json`. There is no interactive documentation page.
 
 **Statuses:** `uploaded` (recorded, not queued: `_NOAI`, or auto-processing off), `queued`, `processing`, `completed`, `failed`, `needs_review`. A document keeps serving its last good extraction while a reprocess runs or after one fails (`contentAvailable`).
 
-**Errors** carry a stable `code`: `EMPTY_FILE`, `FILE_TOO_LARGE`, `UNSUPPORTED_TYPE`, `MACRO_ENABLED`, `ARCHIVE_BOMB`, `ENCRYPTED_FILE`, `CORRUPT_FILE`, `TOO_MANY_PAGES`, `IMAGE_TOO_LARGE`, `MALWARE_DETECTED`, `MALWARE_SCAN_FAILED`, `ENGINE_UNAVAILABLE`, `ENGINE_FAILED`, `PROCESSING_TIMEOUT`, `WORKER_CRASHED`, `SOURCE_UNAVAILABLE`, `SOURCE_DELETED`, `NO_AI_DOCUMENT`.
+**Errors** carry a stable `code`: `EMPTY_FILE`, `FILE_TOO_LARGE`, `UNSUPPORTED_TYPE`, `MACRO_ENABLED`, `ARCHIVE_BOMB`, `ENCRYPTED_FILE`, `CORRUPT_FILE`, `TOO_MANY_PAGES`, `IMAGE_TOO_LARGE`, `MALWARE_DETECTED`, `MALWARE_SCAN_FAILED`, `ENGINE_UNAVAILABLE`, `ENGINE_FAILED`, `PROCESSING_TIMEOUT`, `WORKER_CRASHED`, `SOURCE_UNAVAILABLE`, `SOURCE_DELETED`, `SOURCE_NOT_FOUND`, `SOURCE_NOT_CONFIGURED`, `NO_AI_DOCUMENT`.
+
+### Events
+
+With `REDSKY_OCR_EVENTS_URL` set, the service POSTs `document.completed`, `document.needs_review` and `document.failed` to the RedSky API when a job ends (a retry is not an event), and `document.deleted` when a Twenty attachment's deletion purged a document:
+
+```json
+{"id": "…", "type": "document.completed", "occurredAt": "…", "tenantId": "…",
+ "document": {"id": "…", "source": {"system": "storage", "id": "documents/…"}, "status": "completed", "statusReason": null},
+ "extractionId": "…"}
+```
+
+- Headers: `X-RedSky-Event-Id`, `X-RedSky-Event-Type`, `X-RedSky-Timestamp` (Unix milliseconds) and `X-RedSky-Signature`, the hex HMAC-SHA256 of `timestamp + "." + body` with `REDSKY_OCR_EVENTS_SECRET`. The receiver verifies it over the raw body, refuses old timestamps, and treats the event id as an idempotency key.
+- Events are written in the same transaction as the change they describe (an outbox table) and delivered at least once. Any 2xx counts as delivered. Failures back off from 30 seconds up to an hour; after 60 attempts (about two days) an event is abandoned and kept for inspection.
+- An event says what changed, never what the document contains: the receiver reads results through the API.
 
 ## Processing and the queue
 
 - The queue is the `redsky_ocr.extraction` table. Workers claim with `FOR UPDATE SKIP LOCKED`, heartbeat every 15 seconds, and a job whose heartbeat stops for two minutes is handed back. Only the worker holding a job can record its result.
 - One queued or running extraction per document: duplicate webhooks and repeated requests collapse onto it.
-- Retryable failures (Twenty unreachable, scanner unreachable, a crashed worker) back off 30 s, 60 s, 120 s, up to `REDSKY_OCR_JOB_MAX_ATTEMPTS`. Problems with the file itself fail at once.
+- Retryable failures (bucket or Twenty unreachable, scanner unreachable, a crashed worker) back off 30 s, 60 s, 120 s, up to `REDSKY_OCR_JOB_MAX_ATTEMPTS`. Problems with the file itself fail at once.
 - Each job runs in a fresh process in its own session. It is killed with its Tesseract children at `REDSKY_OCR_JOB_TIMEOUT_SECONDS`. The downloaded file and page images live in a per-job directory (mode 700) that is always deleted, also after a kill.
-- `redsky-ocr backfill --since <date>` moves the sweep's cursor back, so the next sweep queues every attachment created since then.
 - `redsky-ocr serve` runs the API and `REDSKY_OCR_WORKER_CONCURRENCY` worker threads in one process. Threads only orchestrate; the extraction work is in the job processes. `redsky-ocr api` and `redsky-ocr worker` split the roles into separate services when needed, with no code change.
 
 ## Data
 
-Database `redsky_ocr` (its own login, on the existing Postgres server), schema `redsky_ocr`:
+Database `redsky_ocr` (its own login, on `redsky-postgres`; never Twenty's Postgres), schema `redsky_ocr`:
 
 | Table | Holds |
 |---|---|
-| `document` | One per attachment: workspace, attachment and file ids, filename, MIME type (sniffed), size, SHA-256, linked record, uploader, `no_ai`, status, current extraction |
-| `extraction` | One per processing run, and the job queue: requested and actual engine and version, attempts, routing decisions, quality report, full Markdown and text, errors, timings |
+| `document` | One per source object: tenant, source system and id, source details, filename, MIME type (sniffed), size, SHA-256, uploader, `no_ai`, status, current extraction |
+| `document_link` | The records a document belongs to, named by the system that owns each record |
+| `extraction` | One per processing run, and the job queue: requested and actual engine and version, requester, attempts, routing decisions, quality report, full Markdown and text, errors, timings |
 | `page` | Text and Markdown per page, method (`text_layer`, `ocr`, `native`, `layout`, `layout_ocr`, `vlm`), OCR confidence, size, full-text index |
 | `extracted_table` | Cells as JSON, Markdown, page, caption |
 | `chunk` | Retrieval units with headings and page range. An embedding column (pgvector) is the planned addition |
 | `extraction_artifact` | Docling's lossless JSON, gzip-compressed, so chunking and exports can be redone without OCR |
+| `sync_state` | How far the Twenty sweep has read |
+| `event_outbox` | Events for the RedSky API, with delivery state |
 
-Large originals are not stored here. Deleting the attachment in Twenty deletes all of the above for it.
+Originals are not stored here. Deleting a document (by the API, or by deleting its Twenty attachment) deletes all of the above for it.
 
 ## Security
 
 | Requirement | How |
 |---|---|
-| Authentication | Twenty access tokens, verified with Twenty (`currentUser`) and cached by SHA-256 for `REDSKY_OCR_AUTH_CACHE_SECONDS` (60 s). Fails closed (503) when Twenty cannot be reached |
-| Authorization | Per document and per request, with the caller's token against the source attachment (cached at most 30 s). Workspace-scoped queries. Not-visible and not-existing look the same |
-| Service-to-service | Webhooks are HMAC-signed with a shared secret and time-limited. The worker fetches files with a Twenty API key whose role can only read attachments and their parent record types |
-| Private traffic | On Railway, Twenty and this service talk over `*.railway.internal`. File URLs signed for Twenty's public domain are rewritten to its private URL (`REDSKY_OCR_TWENTY_PUBLIC_URL`). Downloads go only to allow-listed hosts and follow at most three redirects |
+| Authentication | Service tokens compared in constant time; several may be valid at once, for rotation; at least 32 characters. Twenty tokens, when enabled, are verified with Twenty (`currentUser`) and cached by SHA-256 for `REDSKY_OCR_AUTH_CACHE_SECONDS` (60 s); fails closed (503) when Twenty cannot be reached |
+| Authorization | Tenant-scoped queries for every caller. The RedSky API is trusted for its tenant and user. Twenty users are checked per document and per request against the source attachment with their own token (cached at most 30 s). Not-visible and not-existing look the same |
+| Service-to-service | Events are HMAC-signed and timestamped. Twenty webhooks are HMAC-signed and time-limited. The worker reads the bucket with storage credentials and refuses keys outside `REDSKY_OCR_STORAGE_KEY_PREFIX`; it fetches Twenty files with an API key whose role can only read attachments and their parent record types |
+| Private traffic | On Railway, everything talks over `*.railway.internal`; the service has no public domain. File URLs signed for Twenty's public domain are rewritten to its private URL (`REDSKY_OCR_TWENTY_PUBLIC_URL`). Twenty downloads go only to allow-listed hosts and follow at most three redirects. No CORS: browsers never call the service |
 | File validation | Type from content, not extension. Size limit before the body is read. Macro-enabled and legacy or encrypted Office files refused. ZIP entry count, expansion size and ratio limits. Page limit. Pixel limit (Pillow's decompression-bomb guard), and oversized PDF pages rendered within it |
+| Request limits | Request bodies need a `Content-Length` and are capped (64 KB for registration, 1 MB for webhooks) |
 | Malware | Optional ClamAV (`REDSKY_OCR_CLAMAV_HOST`), streamed to clamd before parsing; fails closed. Without it, the controls above plus sandboxed parsing with no code execution (macros are refused, not run) |
-| Timeouts | Per job; per Tesseract page; Twenty calls 15 s |
+| Timeouts | Per job; per Tesseract page; Twenty calls 15 s; bucket reads 60 s |
 | Logging | JSON logs with ids, codes and timings. Never document text, filenames' contents, tokens or search terms; no access log with query strings; exception messages from parsers are not logged (type and location only) |
-| No outbound calls | Models are baked into the image at build time; the service runs with `HF_HUB_OFFLINE=1` and Docling's remote services off. Its only outbound connection is Twenty (and, if configured, clamd and the Granite endpoint) |
-| Least privilege | Separate database login that cannot read Twenty's data. Container runs as an unprivileged user. Twenty API key read-only |
-| Secrets | Environment only. Never in the image or the repository |
-| Encryption | Transport: Railway's private network (WireGuard-encrypted) inside the project, TLS at the edge. At rest: whatever Railway provides for Postgres volumes; this service adds no application-level encryption |
+| No outbound calls | Models are baked into the image at build time; the service runs with `HF_HUB_OFFLINE=1` and Docling's remote services off. It connects only to the bucket, the RedSky API (events), Twenty when configured, and clamd and the Granite endpoint when configured |
+| Least privilege | Separate database login that cannot read RedSky's or Twenty's data. Container runs as an unprivileged user. Read-only use of the bucket and of Twenty |
+| Secrets | Environment only (sealed on Railway). Never in the image or the repository. Empty variables count as unset, and blank secrets are refused |
+| Encryption | Transport: Railway's private network (WireGuard-encrypted) inside the project, TLS at the edge. At rest: whatever Railway provides for Postgres volumes and buckets; this service adds no application-level encryption |
 
 ## Configuration
 
-Variables use the `REDSKY_OCR_` prefix; see [`.env.example`](.env.example) for all of them with defaults. The ones that matter:
+Variables use the `REDSKY_OCR_` prefix; see [`.env.example`](.env.example) for all of them with defaults, and [`railway.env.example`](railway.env.example) for Railway. The ones that matter:
 
 | Variable | Default | |
 |---|---|---|
 | `DATABASE_URL` | required | `postgresql://redsky_ocr:…@host:5432/redsky_ocr` |
-| `TWENTY_URL` | required | Twenty's private URL |
-| `TWENTY_PUBLIC_URL` | | Twenty's `SERVER_URL`, so its file links can be fetched privately |
-| `TWENTY_API_KEY` | | Read-only key for fetching files. Without it nothing is processed |
-| `TWENTY_WEBHOOK_SECRET` | | Enables the webhook receiver |
-| `AUTO_PROCESS_ATTACHMENTS` | `true` | Queue every new attachment (webhook and sweep) |
-| `RECONCILE_INTERVAL_SECONDS` | 600 | Sweep for attachments whose webhook was missed; 0 turns it off |
 | `ADMIN_DATABASE_URL` | | First deploy only: creates the login and database named in `DATABASE_URL`. Remove afterwards |
+| `SERVICE_TOKENS` | | Comma-separated bearer tokens for the RedSky API |
+| `STORAGE_BUCKET`, `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` | | The RedSky documents bucket. Without them the `storage` source is off |
+| `STORAGE_ADDRESSING_STYLE` | `virtual` | Railway buckets need `virtual`; `path` for MinIO or moto |
+| `STORAGE_KEY_PREFIX` | `documents/` | Keys outside it are refused |
+| `EVENTS_URL`, `EVENTS_SECRET` | | Where events go, and their signing secret |
+| `TWENTY_URL` | | Twenty's private URL. Without it the `twenty` source is off |
+| `TWENTY_PUBLIC_URL` | | Twenty's `SERVER_URL`, so its file links can be fetched privately |
+| `TWENTY_API_KEY` | | Read-only key for fetching attachments |
+| `TWENTY_WEBHOOK_SECRET` | | Enables the webhook receiver |
+| `TWENTY_TENANT_ID` | Twenty's workspace id | Tenant recorded for Twenty attachments; the RedSky API must send the same value |
+| `ACCEPT_TWENTY_TOKENS` | `false` | Let Twenty users call the service directly |
+| `AUTO_PROCESS_ATTACHMENTS` | `true` | Queue every new Twenty attachment (webhook and sweep) |
+| `RECONCILE_INTERVAL_SECONDS` | 600 | Sweep for attachments whose webhook was missed; 0 turns it off |
 | `MAX_FILE_BYTES`, `MAX_PAGES`, `MAX_IMAGE_PIXELS` | 50 MB, 500, 60 MP | |
 | `JOB_TIMEOUT_SECONDS`, `JOB_MAX_ATTEMPTS`, `WORKER_CONCURRENCY` | 900, 3, 1 | |
 | `OCR_LANGUAGES`, `OCR_DPI`, `OCR_MIN_CONFIDENCE` | `eng`, 300, 60 | More languages need `tesseract-ocr-<lang>` in the Dockerfile |
 | `GRANITE_DOCLING_MODE` | `off` | `off`, `local` or `remote` (`GRANITE_DOCLING_API_URL`, `GRANITE_DOCLING_API_KEY`) |
 | `CLAMAV_HOST`, `CLAMAV_PORT` | | |
-| `CORS_ALLOWED_ORIGINS` | none | For a browser front end calling the API directly |
 
 ## Develop and test
 
 ```bash
-cd rsm/services/redsky-ocr
-uv venv -p 3.12 .venv && VIRTUAL_ENV=$PWD/.venv uv pip sync requirements.lock
-VIRTUAL_ENV=$PWD/.venv uv pip install --no-deps -e . pytest==9.1.1 reportlab==5.0.1 iniconfig pluggy packaging
+cd services/ocr
+uv venv -p 3.12 .venv
+VIRTUAL_ENV=$PWD/.venv uv pip sync requirements-dev.lock
+VIRTUAL_ENV=$PWD/.venv uv pip install --no-deps -e .
 sudo apt-get install tesseract-ocr tesseract-ocr-eng     # or brew install tesseract
 
 # Unit and integration tests. Database tests need a disposable Postgres:
 REDSKY_OCR_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/postgres .venv/bin/pytest
 ```
 
-Tests run on a synthetic dataset generated at test time ([`tests/sample_documents.py`](tests/sample_documents.py); `python tests/sample_documents.py ./out` writes it to disk): native, scanned and mixed PDFs, PNG, JPEG, multi-page TIFF, DOCX, PPTX, XLSX, plus blank, encrypted, corrupt, macro-enabled, ZIP-bomb and pixel-bomb files. Everything is invented. The two tests marked `docling_models` run only when `REDSKY_OCR_DOCLING_ARTIFACTS_PATH` points at the models.
+CI runs the same in [`.github/workflows/ocr.yml`](../../.github/workflows/ocr.yml) when anything under `services/ocr` changes.
 
-Twenty is faked in unit tests with responses copied from a live Twenty 2.44 ([`tests/fake_twenty.py`](tests/fake_twenty.py)). Against a real Twenty:
+### Dependencies
+
+`pyproject.toml` declares them; three hashed lock files pin them: `requirements.lock` (the service), `requirements-models.lock` (adds the Docling model runtime; torch comes from PyTorch's index in the Dockerfile) and `requirements-dev.lock` (adds the test tools). After changing `pyproject.toml`, regenerate all three with [uv](https://docs.astral.sh/uv/), moving the cutoff date forward on purpose:
+
+```bash
+CUTOFF=2026-10-08T00:00:00Z
+COMMON="--python-version 3.12 --python-platform x86_64-manylinux_2_28 --exclude-newer $CUTOFF --no-header -q"
+uv pip compile pyproject.toml $COMMON --generate-hashes -o requirements.lock
+EXCL=$(uv pip compile pyproject.toml --extra models $COMMON | grep -oE "^(torch|torchvision|triton|nvidia-[a-z0-9-]+)==" | tr -d '=' | sed 's/^/--no-emit-package /' | tr '\n' ' ')
+uv pip compile pyproject.toml --extra models $COMMON --generate-hashes $EXCL -o requirements-models.lock
+uv pip compile pyproject.toml --extra dev $COMMON --generate-hashes -o requirements-dev.lock
+```
+
+Then check that no forbidden package came in (`.venv/bin/python -c "from redsky_ocr import policy; policy.enforce(None)"` after syncing) and that each new package's origin is acceptable.
+
+Tests run on a synthetic dataset generated at test time ([`tests/sample_documents.py`](tests/sample_documents.py); `python tests/sample_documents.py ./out` writes it to disk): native, scanned and mixed PDFs, PNG, JPEG, multi-page TIFF, DOCX, PPTX, XLSX, plus blank, encrypted, corrupt, macro-enabled, ZIP-bomb and pixel-bomb files. Everything is invented. The two tests marked `docling_models` run only when `REDSKY_OCR_DOCLING_ARTIFACTS_PATH` points at the models. The bucket is faked with moto; Twenty is faked with responses copied from a live Twenty 2.44 ([`tests/fake_twenty.py`](tests/fake_twenty.py)).
+
+Against a real Twenty:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d --build      # Twenty 2.44, Postgres, Redis
@@ -173,10 +231,12 @@ SECRET=$(openssl rand -hex 32)
 python scripts/e2e_twenty.py bootstrap --webhook-secret "$SECRET"   # users, roles, API key, webhook
 REDSKY_OCR_TWENTY_API_KEY=$(cat .e2e-api-key) REDSKY_OCR_TWENTY_WEBHOOK_SECRET=$SECRET \
   docker compose -f docker-compose.dev.yml --profile ocr up -d --build
-python scripts/e2e_twenty.py run
+# The bucket stand-in starts empty; create the documents bucket once:
+.venv/bin/python -c "import boto3; boto3.client('s3', endpoint_url='http://localhost:5000', region_name='us-east-1', aws_access_key_id='testing', aws_secret_access_key='testing').create_bucket(Bucket='redsky-documents')"
+python scripts/e2e_twenty.py run --service-token local-development-service-token-0123456789
 ```
 
-Run it after every Twenty upgrade: it checks webhook ingestion, upload through this service, access denial for a user without file access, search filtering and purge on delete.
+Run it after every Twenty upgrade: it checks webhook ingestion, access denial for a user without file access, calls from the RedSky API, tenant separation, search filtering and purge on delete.
 
 Benchmark: `python scripts/benchmark.py --runs 3` (add `REDSKY_OCR_DOCLING_ARTIFACTS_PATH` and the Granite variables to include those engines).
 
@@ -198,12 +258,13 @@ Read these as a floor, not an accuracy claim: the synthetic scans are clean, sin
 
 ## Deploy
 
-Railway settings, variables and the Twenty-side steps are in [`rsm/deploy/railway/README.md`](../../deploy/railway/README.md#redsky-ocr).
+Railway settings, variables and first-deployment steps: [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md#13-optional-redsky-ocr).
 
 ## Known limits
 
-- Tested in CI-like conditions: everything above except the Docling layout/TableFormer path and Granite Docling, whose weights live on Hugging Face, which the environment that built this could not reach. The first Railway build downloads them; run the benchmark there.
+- The RedSky API side is not built yet: `redsky-web` does not store uploads in the bucket, call this service or receive its events. Until it does, the service is usable on Twenty attachments (webhook, sweep, and Twenty users with `ACCEPT_TWENTY_TOKENS`).
+- The `storage` source is tested against moto's S3, not yet against a Railway bucket.
+- Not tested: the Docling layout/TableFormer path and Granite Docling, whose weights live on Hugging Face, which the environment that built this could not reach. The first Railway build downloads them; run the benchmark there.
 - The `tesseract` engine finds no table structure in PDFs and images; tables there need the `docling` engine.
 - Handwriting: Tesseract handles it poorly. Granite Docling is the route to try.
 - Search is English full-text, not semantic.
-- No RedSky UI yet; results are available through the API.

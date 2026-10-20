@@ -1,6 +1,6 @@
 import 'server-only';
 
-// Access control for RedSky-owned data, aligned with rsm-crm/RSM_ARCHITECTURE.md §12:
+// Access control for RedSky-owned data, aligned with redsky-twenty/RSM_ARCHITECTURE.md §12:
 // - Access roles (member/admin) are security roles; onboarding "focus areas" are personalization only.
 // - Data classification tiers drive defaults; restricted/walled records need explicit membership.
 // - Administrators manage the platform but get no business or personal data by default (§12.3 "Platform admin").

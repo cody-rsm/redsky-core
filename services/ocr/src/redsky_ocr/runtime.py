@@ -5,8 +5,9 @@ from redsky_ocr.engines.base import EngineOptions
 from redsky_ocr.validation import Limits
 
 # The RSM Deal System's `_NOAI` filename tag: no AI processing anywhere, and
-# nobody at RSM can waive it (RSM_ARCHITECTURE.md 12.7). Extracted text feeds
-# RedSky's AI features, so these files are recorded but never extracted.
+# nobody at RSM can waive it (RSM_ARCHITECTURE.md 12.7 in redsky-twenty).
+# Extracted text feeds RedSky's AI features, so these files are recorded but
+# never extracted.
 NO_AI_TAG = re.compile(r"(?:^|[_\-\s.])NOAI(?:[_\-\s.]|$)", re.IGNORECASE)
 
 

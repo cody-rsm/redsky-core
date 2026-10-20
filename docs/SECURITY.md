@@ -72,3 +72,7 @@ RedSky uses its own PostgreSQL service and the `redsky` schema. The migration ru
 ## Secrets
 
 `.env*` (except `.env.example`), PDFs and key files are git-ignored and excluded from the Docker build context. Secrets live in Railway service variables and RSM's password manager. Losing `REDSKY_ENCRYPTION_KEY` makes stored Workstyle data unreadable by design.
+
+## Services behind the API
+
+Services under `services/` are private: no public domain, reachable only on Railway's private network, and called only by the RedSky API, which authorizes the user first and passes the tenant and user with a service token ([`DECISIONS.md`](DECISIONS.md) 2 and 4). Each service has its own database login and cannot read RedSky's or Twenty's tables. Events they send back are HMAC-signed and timestamped. `redsky-ocr`'s security model is in [`services/ocr/README.md`](../services/ocr/README.md#security).

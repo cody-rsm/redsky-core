@@ -2,6 +2,24 @@
 
 RSM Capital's internal operating system: a personalized workspace with a 9-step onboarding, Workstyle Intelligence, a customizable home dashboard and RedSky AI. It runs as its own service next to the Twenty CRM deployment and talks to Twenty only through a server-side, read-only adapter.
 
+This repository is `cody-rsm/redsky-core` (formerly `cody-rsm/RedSky`). It holds the RedSky platform: the web app and API at the root, and services under [`services/`](services/). Twenty CRM lives in `cody-rsm/redsky-twenty` (formerly `cody-rsm/rsm-crm`).
+
+## Platform structure
+
+RedSky is built as nine layers, from UX down to hosting, with Twenty CRM beside them as a replaceable connected system that RedSky takes over one area at a time. Four rules hold it together ([`docs/DECISIONS.md`](docs/DECISIONS.md) 1 to 4):
+
+1. **One owner per record type.** Twenty owns CRM records today; RedSky owns its workspace data and documents. Areas move to RedSky one at a time, Documents first, and never sync two ways.
+2. **One sign-in, permissions where the record lives.** Entra ID for both systems. The RedSky API reads Twenty as the signed-in user, so Twenty's permissions and deal walls apply. No all-access key with Twenty's permissions re-implemented in RedSky (today's shared read-only key is a known gap).
+3. **Documents in RedSky storage.** Uploads go to RedSky's own bucket; SharePoint stays the deal-system home. Extracted text and embeddings stay in Postgres.
+4. **HTTP contracts, no shared queues.** Services such as `redsky-ocr` expose versioned HTTP APIs and send signed events to the RedSky API. They are private; the frontend calls only the RedSky API.
+
+The layer map, services, where new work goes and the known gaps are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#platform-structure).
+
+| Path | What | Railway service |
+|---|---|---|
+| `/` | The RedSky web app: frontend and RedSky API (Next.js) | `redsky-web` |
+| [`services/ocr`](services/ocr/) | `redsky-ocr`: self-hosted document OCR and extraction (Python, Docling and Tesseract) | `redsky-ocr` (not deployed yet) |
+
 The approved Claude Design prototype in [`prototype/`](prototype/) is the source of truth for the UI. This app reproduces it as production code.
 
 ## What's in this release
@@ -15,6 +33,7 @@ The approved Claude Design prototype in [`prototype/`](prototype/) is the source
 | Workspace | Command palette, RedSky AI panel, meeting prep and record drawers, quick create, notifications, Settings (7 tabs), People, Pipeline and roadmap module pages, light/dark themes. |
 | AI | Anthropic provider when configured, otherwise "not configured". Demo mode uses the prototype's simulated answers, labelled as simulated. Proposed actions run only after explicit confirmation and server-side authorization. |
 | CRM | Twenty REST adapter with normalized models. Inactive until `TWENTY_API_URL` and `TWENTY_API_KEY` are set. |
+| Documents | `redsky-ocr` in [`services/ocr`](services/ocr/): built and tested, not deployed, and not yet called by the web app. |
 
 ### Data modes
 
@@ -53,14 +72,17 @@ To run the database-backed migration guard tests, set `REDSKY_TEST_DATABASE_URL`
 
 ## Deployment
 
-RedSky deploys to Railway from this repository's `Dockerfile` (see [`railway.json`](railway.json)). It gets its own Postgres service; the existing Twenty services are not touched. Click-by-click steps, the variable list, the checklist and rollback are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+RedSky deploys to Railway from this repository's `Dockerfile` (see [`railway.json`](railway.json)). It gets its own Postgres service; the existing Twenty services are not touched. `redsky-ocr` is a separate Railway service built from `services/ocr`. Click-by-click steps, the variable list, the checklist and rollback are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Documentation
 
-- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md): prototype audit, architecture, key decisions
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): code map, data flow, adding widgets, connectors and AI tools
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): platform structure (layers, services, rules, where new work goes), then the web app's code map, data flow, and how to add widgets, connectors and AI tools
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): platform decisions and open questions
+- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md): prototype audit and the web app's key decisions
 - [`docs/SECURITY.md`](docs/SECURITY.md): authentication, authorization, Workstyle privacy, AI safeguards, audit
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): Railway deployment guide and checklist
+- [`services/ocr/README.md`](services/ocr/README.md): `redsky-ocr` design, API, events and security
+- [`CLAUDE.md`](CLAUDE.md): instructions for coding agents working in this repository
 
 ## Branches
 
