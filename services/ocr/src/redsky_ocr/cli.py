@@ -18,14 +18,27 @@ logger = logging.getLogger(__name__)
 
 
 def default_host() -> str:
-    # "::" also accepts IPv4 and is what Railway's private network needs, but
-    # not every host has IPv6 (Docker's default bridge network does not).
+    # "::" is what Railway's private network needs, but not every host has
+    # IPv6 (Docker's default bridge network does not).
     try:
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as probe:
             probe.bind(("::", 0))
         return "::"
     except OSError:
         return "0.0.0.0"
+
+
+def listening_socket(host: str, port: int) -> socket.socket:
+    # Bound here because asyncio, and so uvicorn, makes "::" IPv6-only:
+    # Railway's health check arrives over IPv4 and its private network may use
+    # either, so one socket has to take both.
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if family == socket.AF_INET6:
+        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    sock.bind((host, port))
+    return sock
 
 
 def twenty_client(settings) -> TwentyClient | None:
@@ -100,14 +113,12 @@ def main() -> None:
 
         from redsky_ocr.api.app import create_app
 
-        uvicorn.run(
-            create_app(settings),
-            host=os.environ.get("REDSKY_OCR_HOST") or default_host(),
-            port=int(os.environ.get("PORT", "8080")),
-            access_log=False,
-            log_config=None,
-            server_header=False,
+        sock = listening_socket(
+            os.environ.get("REDSKY_OCR_HOST") or default_host(),
+            int(os.environ.get("PORT", "8080")),
         )
+        config = uvicorn.Config(create_app(settings), access_log=False, log_config=None, server_header=False)
+        uvicorn.Server(config).run(sockets=[sock])
         stop.set()
         return
 
