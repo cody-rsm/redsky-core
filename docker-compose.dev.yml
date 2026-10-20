@@ -1,0 +1,103 @@
+# Local development only: a throwaway Twenty, its Postgres and Redis, and
+# redsky-ocr built from this directory. Uses the stock Twenty image, which
+# includes Enterprise-licensed code, so never load real data into it.
+#
+#   docker compose -f docker-compose.dev.yml up -d --build
+#
+# Twenty: http://localhost:3000   redsky-ocr: http://localhost:8080
+name: redsky-ocr-dev
+
+x-twenty-environment: &twenty-environment
+  PG_DATABASE_URL: postgres://postgres:postgres@db:5432/twenty
+  REDIS_URL: redis://redis:6379
+  SERVER_URL: http://localhost:3000
+  APP_SECRET: local-development-only-app-secret
+  ENCRYPTION_KEY: bG9jYWwtZGV2ZWxvcG1lbnQtb25seS1lbmNyeXB0aW9uLWs=
+  STORAGE_TYPE: local
+  IS_MULTIWORKSPACE_ENABLED: "false"
+  TELEMETRY_ENABLED: "false"
+  ALLOW_REQUESTS_TO_TWENTY_ICONS: "false"
+  MARKETPLACE_CATALOG_SYNC_CRON_ENABLED: "false"
+  # Lets Twenty's webhooks reach redsky-ocr on the private network without
+  # switching off SSRF protection for every other host.
+  OUTBOUND_HTTP_ALLOWED_INTERNAL_HOSTS: redsky-ocr,host.docker.internal
+
+services:
+  twenty:
+    image: twentycrm/twenty:v2.44.0
+    ports: ["3000:3000"]
+    environment:
+      <<: *twenty-environment
+      NODE_PORT: "3000"
+    volumes:
+      - twenty-files:/app/packages/twenty-server/.local-storage
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: curl --fail http://localhost:3000/healthz
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  twenty-worker:
+    image: twentycrm/twenty:v2.44.0
+    command: ["yarn", "worker:prod"]
+    environment:
+      <<: *twenty-environment
+      DISABLE_DB_MIGRATIONS: "true"
+      DISABLE_CRON_JOBS_REGISTRATION: "true"
+    volumes:
+      - twenty-files:/app/packages/twenty-server/.local-storage
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      twenty: { condition: service_healthy }
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: twenty
+    volumes:
+      - ./scripts/dev-init-database.sql:/docker-entrypoint-initdb.d/20-redsky-ocr.sql:ro
+      - ./scripts/create-database.sql:/redsky-ocr/create-database.sql:ro
+      - db-data:/var/lib/postgresql/data
+    ports: ["55433:5432"]
+    healthcheck:
+      test: pg_isready -U postgres -h localhost
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    command: ["--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redsky-ocr:
+    profiles: ["ocr"]
+    build:
+      context: .
+      args:
+        WITH_DOCLING_MODELS: "false"
+    ports: ["8080:8080"]
+    environment:
+      REDSKY_OCR_DATABASE_URL: postgresql://redsky_ocr:redsky_ocr_local@db:5432/redsky_ocr
+      REDSKY_OCR_TWENTY_URL: http://twenty:3000
+      # Twenty signs file URLs with its SERVER_URL; they are fetched over
+      # REDSKY_OCR_TWENTY_URL instead.
+      REDSKY_OCR_TWENTY_PUBLIC_URL: http://localhost:3000
+      REDSKY_OCR_TWENTY_API_KEY: ${REDSKY_OCR_TWENTY_API_KEY:-}
+      REDSKY_OCR_TWENTY_WEBHOOK_SECRET: ${REDSKY_OCR_TWENTY_WEBHOOK_SECRET:-}
+      REDSKY_OCR_CORS_ALLOWED_ORIGINS: http://localhost:3000
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  db-data:
+  twenty-files:
