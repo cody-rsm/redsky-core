@@ -177,6 +177,7 @@ export type PublicConfig = {
   aiSimulated: boolean;
   crmConnected: boolean;
   workstyleStorageAvailable: boolean;
+  timeZone: string;
 };
 
 export function getPublicConfig(): PublicConfig {
@@ -188,5 +189,6 @@ export function getPublicConfig(): PublicConfig {
     aiSimulated: config.dataMode === 'demo',
     crmConnected: config.crm.provider === 'twenty',
     workstyleStorageAvailable: config.encryptionKey !== null,
+    timeZone: config.timeZone,
   };
 }

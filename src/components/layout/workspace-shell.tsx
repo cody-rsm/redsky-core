@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { ToastViewport } from '@/components/common/toast-viewport';
@@ -19,8 +20,13 @@ import { TopBar } from './top-bar';
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const viewer = useViewer();
   const mobileNavOpen = useUiStore((state) => state.mobileNavOpen);
+  const pathname = usePathname();
   useGlobalShortcuts();
   useThemeSync(viewer.preferences.theme);
+  // Customizing is a mode of the home page; navigating elsewhere ends it (prototype go()).
+  useEffect(() => {
+    if (pathname !== '/home') useUiStore.getState().setCustomizing(false);
+  }, [pathname]);
 
   return (
     <div className="app a-fade" data-nav={viewer.preferences.sidebar} data-mobile={mobileNavOpen}>

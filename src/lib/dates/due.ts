@@ -71,3 +71,14 @@ export function describeDue(dueOn: string | null, today: string): DueDisplay {
   const date = new Date(toUtcMs(dueOn));
   return { label: `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`, tone: 'tx', rank: 3 };
 }
+
+export function formatDayLabel(timeZone: string, now = new Date()): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'long', month: 'long', day: 'numeric' }).format(now);
+}
+
+export function greetingFor(timeZone: string, now = new Date()): string {
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(now));
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}

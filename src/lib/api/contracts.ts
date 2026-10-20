@@ -18,6 +18,8 @@ export type PublicConfigView = {
   aiSimulated: boolean;
   crmConnected: boolean;
   workstyleStorageAvailable: boolean;
+  // The firm's time zone; dates and greetings use it so server and browser render the same text.
+  timeZone: string;
 };
 
 export type DirectoryField = 'firstName' | 'lastName' | 'title' | 'department' | 'email' | 'phone' | 'office';
@@ -64,6 +66,10 @@ export type DueView = { kind: 'date'; on: string } | { kind: 'label'; label: str
 
 export type AttentionAction = 'draft' | 'open' | 'prep' | 'summarize' | 'approve';
 
+// How an item or suggestion asks RedSky AI; decided server-side so the client holds no data-source logic.
+export type AiAsk = { question: string; key: string; ref: string | null };
+export type ConfirmCopy = { title: string; body: string; items: string[]; ok: string };
+
 export type AttentionItemView = {
   key: string; // "task:<uuid>" for RedSky tasks, "demo:<id>" for sample items
   title: string;
@@ -76,7 +82,8 @@ export type AttentionItemView = {
   actionLabel: string;
   sourceNote: string;
   meetingId: string | null;
-  approvalId: string | null;
+  approval: { id: string; title: string; requestedBy: string } | null;
+  ask: AiAsk | null;
   done: boolean;
 };
 
@@ -147,7 +154,9 @@ export type GovView = {
   related: { kind: RecordKind; id: string } | null;
 };
 
-export type AiRecommendationView = { id: string; text: string; basis: string; actionLabel: string; kind: 'draft' | 'propose' | 'tasks' | 'ask'; question: string | null };
+// draft/ask open RedSky AI with `ask`; tasks/propose change data, so they go through the confirmation dialog
+// with `confirm` and execute server-side via /api/actions/confirm.
+export type AiRecommendationView = { id: string; text: string; basis: string; actionLabel: string; kind: 'draft' | 'propose' | 'tasks' | 'ask'; ask: AiAsk | null; confirm: ConfirmCopy | null };
 
 export type ApprovalView = { id: string; title: string; requestedBy: string; due: string; dueTone: 'ac' | 'wn' | 'tx'; approved: boolean; record: { kind: RecordKind; id: string } };
 
@@ -181,6 +190,14 @@ export type WidgetDataMap = {
   documents: { items: DocumentView[] };
   team: { items: TeamActivityView[] };
 };
+
+export type PipelineBoard = {
+  totalLabel: string;
+  columns: Array<{ name: string; count: number; value: string; more: number; deals: Array<{ id: string; name: string; round: string; sector: string; amount: string; activity: string; lead: PersonChip }> }>;
+};
+
+export type PeopleRow = { id: string; name: string; initials: string; tone: number; title: string; org: string; owner: string; last: string; strength: string | null };
+export type PeopleResponse = { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null } | { status: 'not_connected' } | { status: 'error'; message: string };
 
 // ---- Records, meetings, search, notifications -------------------------------------------------------------
 

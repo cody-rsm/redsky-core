@@ -1,0 +1,17 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { ModuleView } from '@/components/pages/module-view';
+import { isModuleId, navItemById } from '@/features/navigation/catalog';
+
+type ModulePageProps = { params: Promise<{ module: string }> };
+
+export async function generateMetadata({ params }: ModulePageProps): Promise<Metadata> {
+  const { module } = await params;
+  return { title: navItemById(module)?.label ?? 'Help' };
+}
+
+export default async function ModulePage({ params }: ModulePageProps) {
+  const { module } = await params;
+  if (!isModuleId(module)) notFound();
+  return <ModuleView moduleId={module} />;
+}

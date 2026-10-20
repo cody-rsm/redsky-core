@@ -4,6 +4,7 @@ import type { DemoPersonaId, WorkspacePreferences } from '@/features/preferences
 import type {
   MeetingPrep,
   NotificationsResponse,
+  PipelineBoard,
   RecordPreview,
   SearchResponse,
   WidgetDataMap,
@@ -32,6 +33,7 @@ export interface WorkspaceDataProvider {
   // Items for Needs Your Attention that come from outside RedSky's own task table.
   externalAttention(context: ProviderContext): Promise<WidgetDataMap['attention']['items']>;
   brief(context: ProviderContext, attentionOpenCount: number): Promise<WidgetResponse<WidgetDataMap['brief']>>;
+  pipelineBoard(context: ProviderContext): Promise<WidgetResponse<PipelineBoard>>;
   record(kind: RecordKind | 'company', id: string, context: ProviderContext): Promise<RecordPreview | null>;
   meetingPrep(meetingId: string, context: ProviderContext): Promise<MeetingPrep | null>;
   search(query: string, context: ProviderContext): Promise<SearchResponse>;

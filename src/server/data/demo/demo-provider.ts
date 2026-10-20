@@ -18,7 +18,8 @@ import {
   DEMO_STAGE_STATS,
   DEMO_TEAM,
 } from '@/demo/sample-records';
-import type { AttentionItemView, MeetingView, WidgetDataMap, WidgetResponse } from '@/lib/api/contracts';
+import type { DemoAiRecommendation } from '@/demo/types';
+import type { AiAsk, AttentionItemView, ConfirmCopy, MeetingView, WidgetDataMap, WidgetResponse } from '@/lib/api/contracts';
 import type { ProviderContext, ProviderWidgetId, WorkspaceDataProvider } from '../types';
 import { chipFor, DEMO_STAGES, dueRank, GOV_STEPS, GOV_STEPS_REGULATORY, ownerName, selfPersonId, stateOf, toneForPersonName } from './helpers';
 import { demoMeetingPrep } from './demo-prep';
@@ -150,7 +151,7 @@ const widgetBuilders: { [TId in ProviderWidgetId]: (context: ProviderContext) =>
         const state = stateOf(context, `rec:${rec.id}`);
         return !state.dismissed && !state.done;
       })
-      .map((rec) => ({ id: rec.id, text: rec.text, basis: rec.basis, actionLabel: rec.actLabel, kind: rec.kind, question: rec.q ?? null })),
+      .map((rec) => ({ id: rec.id, text: rec.text, basis: rec.basis, actionLabel: rec.actLabel, kind: rec.kind, ask: recommendationAsk(rec), confirm: recommendationConfirm(rec) })),
   }),
   approvals: (context) => ({
     items: DEMO_APPROVALS.map((approval) => ({
@@ -171,6 +172,30 @@ const widgetBuilders: { [TId in ProviderWidgetId]: (context: ProviderContext) =>
   }),
   team: () => ({ items: DEMO_TEAM.map((entry) => ({ ...chipFor(entry.who, entry.tone), what: entry.what, when: entry.when })) }),
 };
+
+function approvalFor(id: string | undefined): AttentionItemView['approval'] {
+  const approval = id ? DEMO_APPROVALS.find((entry) => entry.id === id) : undefined;
+  return approval ? { id: approval.id, title: approval.title, requestedBy: approval.by } : null;
+}
+
+function recommendationAsk(rec: DemoAiRecommendation): AiAsk | null {
+  if (rec.kind === 'ask' && rec.q) return { question: rec.q, key: 'summarize', ref: null };
+  if (rec.kind !== 'draft' || !rec.ref) return null;
+  const item = DEMO_ATT.find((entry) => entry.id === rec.ref);
+  const person = DEMO_PEOPLE[rec.ref];
+  return { question: item ? `Draft: ${item.title}` : `Draft a note to ${person?.name ?? 'them'}`, key: 'draft', ref: rec.ref };
+}
+
+function recommendationConfirm(rec: DemoAiRecommendation): ConfirmCopy | null {
+  if (rec.kind === 'tasks' && rec.tasks) {
+    const count = rec.tasks.length;
+    return { title: `Create ${count} ${count === 1 ? 'task' : 'tasks'}?`, body: 'RedSky AI proposed the following. They will be added to My Tasks and assigned to you.', items: rec.tasks.map((task) => `${task.title} · ${task.due}`), ok: 'Create tasks' };
+  }
+  if (rec.kind === 'propose') {
+    return { title: 'Propose moving the Lone Star site review?', body: 'RedSky will send a proposed new time to Aisha Patel. The meeting only moves if she accepts.', items: ['Lone Star site review → Wednesday, Oct 21 · 2:00 PM'], ok: 'Send proposal' };
+  }
+  return null;
+}
 
 export const demoProvider: WorkspaceDataProvider = {
   mode: 'demo',
@@ -194,7 +219,8 @@ export const demoProvider: WorkspaceDataProvider = {
         actionLabel: item.actLabel,
         sourceNote: item.source,
         meetingId: item.mid ?? null,
-        approvalId: item.apId ?? null,
+        approval: approvalFor(item.apId),
+        ask: item.act === 'draft' ? { question: `Draft: ${item.title}`, key: 'draft', ref: item.id } : item.act === 'summarize' ? { question: `Summarize the ${item.related} memo`, key: 'summarize', ref: item.id } : null,
         done: Boolean(stateOf(context, `att:${item.id}`).done),
       }),
     );
@@ -224,6 +250,19 @@ export const demoProvider: WorkspaceDataProvider = {
         accent: Boolean(highlight.accent),
         target: highlight.target.kind === 'prep' ? { kind: 'prep', meetingId: highlight.target.meetingId } : { kind: highlight.target.kind, id: highlight.target.id },
       })),
+    });
+  },
+
+  async pipelineBoard() {
+    return ok({
+      totalLabel: '32 active opportunities · $230M target allocation (sample)',
+      columns: DEMO_STAGES.map((name, index) => {
+        const stat = DEMO_STAGE_STATS[index] ?? { count: 0, value: '—', delta: '0', dir: 'flat' as const };
+        const deals = Object.entries(DEMO_DEALS)
+          .filter(([, deal]) => deal.stage === index)
+          .map(([id, deal]) => ({ id, name: deal.name, round: deal.round, sector: deal.sector, amount: deal.amount, activity: deal.activity, lead: chipFor(deal.lead, toneForPersonName(deal.lead)) }));
+        return { name, count: stat.count, value: stat.value, deals, more: Math.max(0, stat.count - deals.length) };
+      }),
     });
   },
 

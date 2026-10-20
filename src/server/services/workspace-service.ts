@@ -44,7 +44,8 @@ export function taskToAttention(task: TaskRow): AttentionItemView {
     actionLabel: 'Open',
     sourceNote: task.sourceNote,
     meetingId: null,
-    approvalId: null,
+    approval: null,
+    ask: null,
     done: task.status === 'done',
   };
 }

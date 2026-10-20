@@ -1,5 +1,6 @@
 import { initialsFromName } from '@/components/ui/avatar';
 import { DEMO_PEOPLE } from '@/demo/sample-records';
+import type { PeopleResponse } from '@/lib/api/contracts';
 import { getConfig } from '@/server/config/env';
 import { ownerName } from '@/server/data/demo/helpers';
 import { authedRoute } from '@/server/http/api';
@@ -7,8 +8,6 @@ import { getCrmAdapter } from '@/server/integrations/crm';
 import { CrmError } from '@/server/integrations/crm/types';
 import { buildProviderContext } from '@/server/services/workspace-service';
 
-export type PeopleRow = { id: string; name: string; initials: string; tone: number; title: string; org: string; owner: string; last: string; strength: string | null };
-export type PeopleResponse = { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null } | { status: 'not_connected' } | { status: 'error'; message: string };
 
 export const GET = authedRoute(async ({ request, user, actor }): Promise<PeopleResponse> => {
   if (getConfig().dataMode === 'demo') {

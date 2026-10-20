@@ -60,6 +60,10 @@ export const productionProvider: WorkspaceDataProvider = {
     };
   },
 
+  async pipelineBoard() {
+    return { status: 'not_connected', source: PLANNED_SOURCES.pipeline };
+  },
+
   async record(kind, id) {
     const crm = getCrmAdapter();
     if (!crm || (kind !== 'contact' && kind !== 'company')) return null;

@@ -24,4 +24,5 @@ export const queryKeys = {
   search: (query: string) => ['search', query] as const,
   workstyle: ['workstyle'] as const,
   people: ['people'] as const,
+  pipelineBoard: ['pipeline-board'] as const,
 };
