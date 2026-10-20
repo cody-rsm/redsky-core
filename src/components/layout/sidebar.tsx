@@ -42,7 +42,7 @@ export function Sidebar() {
     if (id === 'home') return pathname === '/home' && tab !== 'tasks';
     if (id === 'tasks') return pathname === '/home' && tab === 'tasks';
     if (id === 'ai') return aiOpen;
-    if (id === 'people' || id === 'pipeline') return pathname === `/${id}`;
+    if (id === 'people' || id === 'pipeline' || id === 'documents') return pathname === `/${id}`;
     return pathname === `/m/${id}`;
   }
 

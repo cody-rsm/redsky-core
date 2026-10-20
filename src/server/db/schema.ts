@@ -259,6 +259,46 @@ export const aiActionExecutions = redsky.table(
   (table) => [uniqueIndex('ai_action_executions_key_idx').on(table.userId, table.actionKey)],
 );
 
+// Documents uploaded in RedSky (docs/DECISIONS.md 3). The original lives in the documents bucket under
+// `storage_key`; redsky-ocr keeps what it extracts in its own database, keyed by `ocr_document_id`.
+export const documents = redsky.table(
+  'documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Restrict, not cascade: deleting a user must not silently orphan their files in the bucket and redsky-ocr.
+    ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    storageKey: text('storage_key').notNull(),
+    fileName: text('file_name').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    sha256: text('sha256').notNull(),
+    visibility: text('visibility', { enum: ['private', 'firm'] }).notNull(),
+    relatedLabel: text('related_label').notNull().default(''),
+    noAi: boolean('no_ai').notNull().default(false),
+    ocrDocumentId: uuid('ocr_document_id'),
+    status: text('status', { enum: ['registering', 'uploaded', 'queued', 'processing', 'completed', 'needs_review', 'failed'] }).notNull(),
+    statusReason: text('status_reason'),
+    // When redsky-ocr reported the status held here; older reports (events arrive at least once, in any order)
+    // never overwrite newer ones.
+    statusAt: timestamp('status_at', { withTimezone: true }).notNull().defaultNow(),
+    pageCount: integer('page_count'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('documents_storage_key_idx').on(table.storageKey),
+    uniqueIndex('documents_ocr_document_idx').on(table.ocrDocumentId),
+    index('documents_owner_idx').on(table.ownerId, table.createdAt),
+    index('documents_visibility_idx').on(table.visibility, table.createdAt),
+  ],
+);
+
+// Ids of redsky-ocr events already applied, so a redelivered event is acknowledged without being applied twice.
+export const ocrEventReceipts = redsky.table('ocr_event_receipts', {
+  eventId: uuid('event_id').primaryKey(),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Append-only audit trail for security-sensitive events. Metadata never contains assessment content.
 export const auditEvents = redsky.table(
   'audit_events',

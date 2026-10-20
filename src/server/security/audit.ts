@@ -23,6 +23,11 @@ export type AuditAction =
   | 'task.created'
   | 'approval.approved'
   | 'integration.notify_requested'
+  | 'document.uploaded'
+  | 'document.read'
+  | 'document.downloaded'
+  | 'document.reprocessed'
+  | 'document.deleted'
   | 'access.denied';
 
 export type AuditEvent = {

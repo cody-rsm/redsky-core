@@ -25,6 +25,7 @@ Build order: the RedSky API, frontend, Documents and identity first.
 | A RedSky-owned table | `src/server/db/schema.ts` (schema `redsky`), then `npm run db:generate` and commit the SQL in `drizzle/` |
 | A data source | `src/server/integrations/<name>/`, behind a normalized interface like `crm/` |
 | Heavy or non-TypeScript compute | A new `services/<name>/` with its own Dockerfile, database, versioned API, README and `.github/workflows/<name>.yml`, following `services/ocr` |
+| Documents in the web app | `src/server/services/document-service.ts` and `src/server/documents/` (bucket, OCR client, event check); UI in `src/components/documents` |
 | Document extraction | `services/ocr` (`redsky-ocr`, Python) |
 
 ## Commands

@@ -60,6 +60,7 @@ Decisions that shape the RedSky platform. Each one has a number, a status and th
 - Deleting an original deletes everything derived from it.
 - `_NOAI` files are recorded and never extracted.
 - The bucket is new infrastructure. It holds only originals uploaded in RedSky.
+- Built in `redsky-web`'s Documents page (2026-10-20). A document is shared as "Only me" or "All RSM staff"; team and deal-team sharing waits for team membership, so the page doesn't offer an option it can't enforce.
 
 ## 4. Services talk over versioned HTTP APIs and signed events, never shared queues
 

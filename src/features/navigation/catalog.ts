@@ -101,7 +101,7 @@ export const ROADMAP_PHASES = [
   { n: 'P5', name: 'Autonomous OS', outcome: 'Independent RedSky OS', months: 'Months 10–18+' },
 ] as const;
 
-export type ModuleId = Exclude<NavItemId, 'home' | 'tasks' | 'people' | 'pipeline' | 'ai'> | 'help';
+export type ModuleId = Exclude<NavItemId, 'home' | 'tasks' | 'people' | 'pipeline' | 'documents' | 'ai'> | 'help';
 
 export type ModuleDefinition = { group: string; phase: 0 | 1 | 2 | 3 | 4 | 5; desc: string; caps: ReadonlyArray<string> };
 
@@ -120,7 +120,6 @@ export const MODULES: Record<ModuleId, ModuleDefinition> = {
   energy: { group: 'Operations', phase: 3, desc: 'Energy and infrastructure project development — sites, permits, partners and capital.', caps: ['Site and permit tracking', 'Partner and offtaker records', 'Regulatory proceedings', 'Capital stack and milestones'] },
   gov: { group: 'Operations', phase: 3, desc: 'Government affairs: legislation, proceedings, officials and coalition work.', caps: ['Bill and proceeding tracking', 'Official-interaction logging', 'Coalition and stakeholder maps', 'LegiStorm integration (planned)'] },
   bd: { group: 'Operations', phase: 3, desc: 'Business development: partnerships, introductions and strategic opportunities.', caps: ['Partnership pipeline', 'Introduction tracking', 'Partner mapping', 'Follow-up automation with approval'] },
-  documents: { group: 'Knowledge & Intelligence', phase: 2, desc: 'Documents from SharePoint and email, searchable and linked to the work they support.', caps: ['SharePoint and OneDrive search', 'Semantic retrieval', 'Linked to records', 'Permission-aware results'] },
   research: { group: 'Knowledge & Intelligence', phase: 2, desc: "RSM's institutional knowledge — memos, notes and research — in one searchable library.", caps: ['Institutional knowledge base', 'Ask questions across sources', 'Cited answers', 'Research briefs'] },
   intelligence: { group: 'Knowledge & Intelligence', phase: 2, desc: 'A unified intelligence feed across markets, portfolio companies, energy and policy.', caps: ['Company and people alerts', 'Policy and regulatory updates', 'Why-it-matters summaries', 'Saved and shared items'] },
   help: { group: 'Support', phase: 0, desc: 'Guides, keyboard shortcuts and a direct line to the RedSky team.', caps: ['⌘K — search and commands', '⌘J — Ask RedSky', 'Esc — close panels', 'Send feedback to the RedSky team'] },
@@ -144,6 +143,7 @@ export function hrefForNav(id: NavItemId | NavBottomId | ModuleId): string | nul
   if (id === 'tasks') return '/home?tab=tasks';
   if (id === 'people') return '/people';
   if (id === 'pipeline') return '/pipeline';
+  if (id === 'documents') return '/documents';
   if (id === 'ai' || id === 'settings' || id === 'integrations') return null;
   return `/m/${id}`;
 }

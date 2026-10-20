@@ -20,5 +20,8 @@
   .bar-ind>span{width:36%;animation:rsIndet 1.3s ease-in-out infinite;transform-origin:center}
   .ws-num{width:64px;height:30px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
   .ws-miss{font-size:10.5px;color:var(--wn);font-weight:500}
+  /* Documents table and search hits. */
+  .trow[data-cols=dc]{grid-template-columns:minmax(0,2.2fr) 112px minmax(0,1fr) minmax(0,1.3fr) 84px}
+  .hit mark{background:var(--wnb);color:var(--tx);border-radius:3px;padding:0 1px}
 }
 @keyframes rsIndet{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}

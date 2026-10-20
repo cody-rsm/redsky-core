@@ -25,4 +25,8 @@ export const queryKeys = {
   workstyle: ['workstyle'] as const,
   people: ['people'] as const,
   pipelineBoard: ['pipeline-board'] as const,
+  documents: ['documents'] as const,
+  document: (id: string) => ['documents', 'detail', id] as const,
+  documentContent: (id: string) => ['documents', 'content', id] as const,
+  documentSearch: (query: string) => ['documents', 'search', query] as const,
 };

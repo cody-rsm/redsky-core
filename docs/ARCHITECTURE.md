@@ -37,7 +37,7 @@ Twenty sits beside the layers as a replaceable connected system: a separate repo
 flowchart LR
   B["Browser"] --> WEB["redsky-web<br/>frontend + RedSky API"]
   WEB --> RPG[("redsky-postgres<br/>schema redsky")]
-  WEB -->|"originals (planned)"| DOCS[("redsky-documents<br/>bucket")]
+  WEB -->|"originals"| DOCS[("redsky-documents<br/>bucket")]
   WEB -->|"HTTP /api/v1<br/>service token + user"| OCR["redsky-ocr"]
   OCR -->|"signed events"| WEB
   OCR --> OPG[("redsky-postgres<br/>database redsky_ocr")]
@@ -53,7 +53,7 @@ flowchart LR
 |---|---|---|---|
 | `redsky-web` | `redsky-core`, root `Dockerfile` | Frontend and RedSky API in one Next.js app. They can be split into two services later without changing any contract | Deployable |
 | `redsky-postgres` | Railway PostgreSQL | RedSky's data: schema `redsky` for `redsky-web`, database `redsky_ocr` for `redsky-ocr` | Deployable |
-| `redsky-documents` | Railway bucket | Originals uploaded in RedSky | Planned: nothing writes to it yet |
+| `redsky-documents` | Railway bucket | Originals uploaded in RedSky | Built with Documents, not created on Railway yet |
 | `redsky-ocr` | `redsky-core`, `services/ocr` | Document extraction. Private | Built and tested, not deployed |
 | Sync worker | `redsky-core` | Scheduled connector syncs | Not built: added when the first connector needs one |
 | `twenty-server`, `twenty-worker`, `Postgres`, `Redis`, `Bucket` | `redsky-twenty` | Twenty CRM and its own storage | Running (pre-production) |
@@ -93,12 +93,16 @@ Build order: the RedSky API, frontend, Documents and identity first. Other areas
 - It keeps derived data (pages, tables, chunks, Docling's document model) in its own `redsky_ocr` database and records the records a document belongs to as `{system, object, id}` links.
 - When a job ends it sends `document.completed`, `document.needs_review` or `document.failed`, HMAC-signed, through a transactional outbox.
 
+On the `redsky-web` side, `src/server/services/document-service.ts` stores uploads in the bucket (`src/server/documents/storage.ts`), registers them through a typed client (`src/server/documents/ocr-client.ts`), and keeps one `documents` row per file with its visibility and the status `redsky-ocr` last reported. Signed events arrive at `/api/internal/ocr/events` (verified in `src/server/documents/ocr-events.ts`); when they don't, the page re-reads statuses that are still in progress.
+
 API, events, security and limits: [`services/ocr/README.md`](../services/ocr/README.md).
 
 ### Known gaps
 
 - **The Twenty adapter uses a shared API key** (`TWENTY_API_KEY`), so every RedSky user sees what that key's role sees. This conflicts with rule 2. It is acceptable only while Twenty holds no real client data, and is replaced by per-user access ([decision 7](DECISIONS.md#7-how-the-redsky-api-reads-twenty-as-the-signed-in-user)).
-- **Documents are not wired into the RedSky API yet.** `redsky-web` does not store uploads in `redsky-documents`, call `redsky-ocr`, or receive its events.
+- **Document sharing is "Only me" or "All RSM staff".** Team and deal-team visibility waits for team membership, which RedSky does not have yet (`Actor.teamIds`).
+- **Twenty attachments are read by `redsky-ocr` but not listed in Documents**, and SharePoint is not a source yet.
+- **Document search is full-text** (English), not semantic; embeddings and RedSky AI retrieval over documents come next.
 
 ## The web app
 
@@ -110,8 +114,8 @@ src/
     (entry)/page.tsx        "/" → login, current onboarding step, or the employee's landing view
     login/                  Entra sign-in, or development persona sign-in (dev builds only)
     onboarding/[step]/      the 9-step flow; server checks the session and the furthest step reached
-    (workspace)/            authenticated shell: home, people, pipeline, m/[module]
-    api/                    route handlers; every one goes through server/http/api.ts → authedRoute
+    (workspace)/            authenticated shell: home, people, pipeline, documents, m/[module]
+    api/                    route handlers through server/http/api.ts → authedRoute, except health, auth callbacks and internal/ (signed service events)
   proxy.ts                  CSP nonce + security headers + optimistic redirect to /login
   components/
     ui/                     primitives (Radix-based dialog, switch, segmented, icon, avatar…) styled with the
@@ -120,6 +124,7 @@ src/
     dashboard/              home view, widget frame/states, widget library, 13 widgets (widgets/)
     onboarding/             flow chrome and one component per step (steps/)
     workstyle/              intake, review form, profile summaries, recommendations, before/after preview
+    documents/              upload form and document drawer (text, tables, actions)
     overlays/               command palette, AI panel, meeting prep, record preview, quick create
     settings/               settings modal and tabs
   features/                 isomorphic domain logic and catalogs (no I/O): personalization (recommend/pack),
@@ -141,6 +146,7 @@ src/
     integrations/crm/       CrmAdapter interface + Twenty REST adapter
     ai/                     prompts, context retrieval, Anthropic provider, simulated provider
     workstyle/              PDF text extraction
+    documents/              documents bucket (S3), redsky-ocr client, event signature check
 drizzle/                    SQL migrations (generated by drizzle-kit, applied by scripts/migrate.ts)
 services/ocr/               redsky-ocr, the Python document extraction service (its own README, Dockerfile and CI)
 tests/unit, tests/e2e       Vitest and Playwright suites

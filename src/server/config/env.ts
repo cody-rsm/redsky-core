@@ -36,6 +36,16 @@ const rawSchema = z.object({
   AI_EFFORT: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
   TWENTY_API_URL: optionalString,
   TWENTY_API_KEY: optionalString,
+  REDSKY_TENANT_ID: z.string().trim().regex(/^[A-Za-z0-9._:@-]{1,128}$/).default('rsm'),
+  DOCUMENTS_BUCKET: optionalString,
+  DOCUMENTS_S3_ENDPOINT: optionalString,
+  DOCUMENTS_S3_REGION: z.string().trim().default('auto'),
+  DOCUMENTS_S3_ACCESS_KEY_ID: optionalString,
+  DOCUMENTS_S3_SECRET_ACCESS_KEY: optionalString,
+  DOCUMENTS_S3_FORCE_PATH_STYLE: booleanFlag,
+  OCR_URL: optionalString,
+  OCR_SERVICE_TOKEN: optionalString,
+  OCR_EVENTS_SECRET: optionalString,
   WORKSTYLE_RETAIN_ORIGINAL: booleanFlag,
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   REDSKY_TIMEZONE: z.string().trim().default('America/New_York'),
@@ -65,6 +75,22 @@ export type AppConfig = {
   ai: { provider: 'anthropic' | 'none'; apiKey: string | null; model: string; effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
   crm: { provider: 'twenty' | 'none'; baseUrl: URL | null; apiKey: string | null };
   workstyle: { retainOriginal: boolean };
+  documents: DocumentsConfig;
+};
+
+export type DocumentStorageConfig = { bucket: string; endpoint: URL | null; region: string; accessKeyId: string; secretAccessKey: string; forcePathStyle: boolean };
+export type OcrConfig = { baseUrl: URL; serviceToken: string; eventsSecret: string | null };
+
+export type DocumentsConfig = {
+  // Sent to redsky-ocr as X-RedSky-Tenant-Id. Twenty attachments are recorded there under
+  // REDSKY_OCR_TWENTY_TENANT_ID, which should hold the same value.
+  tenantId: string;
+  storage: DocumentStorageConfig | null;
+  ocr: OcrConfig | null;
+  // Uploads need both the bucket and redsky-ocr; without either, RedSky says so instead of storing files it
+  // cannot read.
+  available: boolean;
+  issues: string[];
 };
 
 const MIN_SECRET_LENGTH = 32;
@@ -112,6 +138,7 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
 
   const encryptionKey = parseEncryptionKey(env.REDSKY_ENCRYPTION_KEY, isProduction, issues);
   const crmUrl = parseUrl(env.TWENTY_API_URL, 'TWENTY_API_URL', issues);
+  const documents = parseDocuments(env, isProduction);
 
   return {
     nodeEnv: env.NODE_ENV,
@@ -131,7 +158,36 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
     },
     crm: { provider: crmUrl && env.TWENTY_API_KEY ? 'twenty' : 'none', baseUrl: crmUrl, apiKey: env.TWENTY_API_KEY ?? null },
     workstyle: { retainOriginal: env.WORKSTYLE_RETAIN_ORIGINAL },
+    documents,
   };
+}
+
+function parseDocuments(env: z.infer<typeof rawSchema>, isProduction: boolean): DocumentsConfig {
+  const issues: string[] = [];
+  let storage: DocumentStorageConfig | null = null;
+  if (env.DOCUMENTS_BUCKET) {
+    const endpoint = parseUrl(env.DOCUMENTS_S3_ENDPOINT, 'DOCUMENTS_S3_ENDPOINT', issues);
+    if (!env.DOCUMENTS_S3_ACCESS_KEY_ID || !env.DOCUMENTS_S3_SECRET_ACCESS_KEY) issues.push('DOCUMENTS_BUCKET needs DOCUMENTS_S3_ACCESS_KEY_ID and DOCUMENTS_S3_SECRET_ACCESS_KEY');
+    else if (!env.DOCUMENTS_S3_ENDPOINT || endpoint)
+      storage = { bucket: env.DOCUMENTS_BUCKET, endpoint, region: env.DOCUMENTS_S3_REGION, accessKeyId: env.DOCUMENTS_S3_ACCESS_KEY_ID, secretAccessKey: env.DOCUMENTS_S3_SECRET_ACCESS_KEY, forcePathStyle: env.DOCUMENTS_S3_FORCE_PATH_STYLE };
+  }
+
+  let ocr: OcrConfig | null = null;
+  if (env.OCR_URL) {
+    const baseUrl = parseUrl(env.OCR_URL, 'OCR_URL', issues);
+    // redsky-ocr refuses tokens shorter than this, so a short one would only fail later, per request.
+    const serviceToken = env.OCR_SERVICE_TOKEN && env.OCR_SERVICE_TOKEN.length >= MIN_SECRET_LENGTH ? env.OCR_SERVICE_TOKEN : null;
+    if (!serviceToken) issues.push(`OCR_URL needs OCR_SERVICE_TOKEN of at least ${MIN_SECRET_LENGTH} characters`);
+    const eventsSecret = env.OCR_EVENTS_SECRET && env.OCR_EVENTS_SECRET.length >= MIN_SECRET_LENGTH ? env.OCR_EVENTS_SECRET : null;
+    if (env.OCR_EVENTS_SECRET && !eventsSecret) issues.push(`OCR_EVENTS_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
+    if (baseUrl && isProduction && baseUrl.protocol !== 'https:' && !baseUrl.hostname.endsWith('.railway.internal') && !isLoopback(baseUrl)) {
+      issues.push('OCR_URL must use https unless it is a Railway private address');
+    } else if (baseUrl && serviceToken) {
+      ocr = { baseUrl, serviceToken, eventsSecret };
+    }
+  }
+
+  return { tenantId: env.REDSKY_TENANT_ID, storage, ocr, available: storage !== null && ocr !== null, issues };
 }
 
 function parseUrl(value: string | undefined, name: string, issues: string[]): URL | null {
@@ -177,6 +233,7 @@ export type PublicConfig = {
   aiSimulated: boolean;
   crmConnected: boolean;
   workstyleStorageAvailable: boolean;
+  documentsAvailable: boolean;
   timeZone: string;
 };
 
@@ -189,6 +246,7 @@ export function getPublicConfig(): PublicConfig {
     aiSimulated: config.dataMode === 'demo',
     crmConnected: config.crm.provider === 'twenty',
     workstyleStorageAvailable: config.encryptionKey !== null,
+    documentsAvailable: config.documents.available,
     timeZone: config.timeZone,
   };
 }

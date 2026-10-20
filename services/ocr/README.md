@@ -108,7 +108,7 @@ OpenAPI: `GET /api/v1/openapi.json`. There is no interactive documentation page.
 
 ### Events
 
-With `REDSKY_OCR_EVENTS_URL` set, the service POSTs `document.completed`, `document.needs_review` and `document.failed` to the RedSky API when a job ends (a retry is not an event), and `document.deleted` when a Twenty attachment's deletion purged a document:
+With `REDSKY_OCR_EVENTS_URL` set (`redsky-web` receives them at `/api/internal/ocr/events`), the service POSTs `document.completed`, `document.needs_review` and `document.failed` to the RedSky API when a job ends (a retry is not an event), and `document.deleted` when a Twenty attachment's deletion purged a document:
 
 ```json
 {"id": "…", "type": "document.completed", "occurredAt": "…", "tenantId": "…",
@@ -258,11 +258,11 @@ Read these as a floor, not an accuracy claim: the synthetic scans are clean, sin
 
 ## Deploy
 
-Railway settings, variables and first-deployment steps: [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md#13-optional-redsky-ocr).
+Railway settings, variables and first-deployment steps: [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md#13-optional-documents-and-redsky-ocr).
 
 ## Known limits
 
-- The RedSky API side is not built yet: `redsky-web` does not store uploads in the bucket, call this service or receive its events. Until it does, the service is usable on Twenty attachments (webhook, sweep, and Twenty users with `ACCEPT_TWENTY_TOKENS`).
+- The RedSky side is `redsky-web`'s Documents page (`src/server/services/document-service.ts`, the receiver at `/api/internal/ocr/events`). It shows only files uploaded in RedSky; Twenty attachments are processed here but not listed there yet.
 - The `storage` source is tested against moto's S3, not yet against a Railway bucket.
 - Not tested: the Docling layout/TableFormer path and Granite Docling, whose weights live on Hugging Face, which the environment that built this could not reach. The first Railway build downloads them; run the benchmark there.
 - The `tesseract` engine finds no table structure in PDFs and images; tables there need the `docling` engine.

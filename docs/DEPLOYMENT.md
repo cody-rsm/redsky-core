@@ -7,7 +7,7 @@ RedSky is added to the **existing** Railway project as two new services:
 | `redsky-web` | GitHub `cody-rsm/redsky-core`, branch `main` (`staging` for a staging environment), root `Dockerfile` | The Next.js app (UI + API). |
 | `redsky-postgres` | Railway PostgreSQL | RedSky's own data: profiles, onboarding, preferences, layouts, Workstyle, tasks, AI conversations, audit log. |
 | `redsky-ocr` (optional, §13) | Same repository, root directory `services/ocr` | Document OCR and extraction. Private. Its own `redsky_ocr` database on `redsky-postgres`. |
-| `redsky-documents` (with §13) | Railway Storage Bucket | Originals uploaded in RedSky. Nothing writes to it until the web app's document upload exists. |
+| `redsky-documents` (with §13) | Railway Storage Bucket | Originals uploaded in RedSky's Documents page. `redsky-web` writes them; `redsky-ocr` reads them. |
 
 `twenty-server`, `twenty-worker`, `Postgres`, `Redis` and `Bucket` are **not changed** by any step below. RedSky never connects to Twenty's `Postgres`. It reaches Twenty only through Twenty's REST API (step 10), and only once you add credentials.
 
@@ -205,11 +205,9 @@ The shared API key below is a stopgap: every RedSky user sees what its role sees
   - Optionally add **Watch Paths** (`/src/**`, `/public/**`, `/drizzle/**`, `/scripts/**`, `/package.json`, `/package-lock.json`, `/Dockerfile`, `/next.config.ts`), so documentation-only and `services/` commits don't redeploy it.
   - Keep Railway project membership limited. Rotate `REDSKY_SESSION_SECRET` by replacing it (this signs everyone out). Never rotate `REDSKY_ENCRYPTION_KEY` without a re-encryption plan.
 
-## 13. Optional: `redsky-ocr`
+## 13. Optional: Documents and `redsky-ocr`
 
-`redsky-ocr` extracts text, tables and page structure from documents. Design, API, events and security model: [`services/ocr/README.md`](../services/ocr/README.md). Status: built and tested, **not deployed**. Nothing below has been applied to the Railway project.
-
-Until the web app stores uploads and calls the service, deploying it is useful only for files attached in Twenty (the `twenty` source). Deploy it then, or wait for the web app's document work; the steps are the same.
+The Documents page lets people upload files that RedSky stores in its own bucket and reads with `redsky-ocr`, which extracts text, tables and page structure. Design, API, events and security model: [`services/ocr/README.md`](../services/ocr/README.md). Status: built and tested locally, **not deployed**. Nothing below has been applied to the Railway project. Until it is, Documents tells people that document storage isn't set up yet.
 
 ### What it adds and reuses
 
@@ -246,8 +244,8 @@ Set these on `redsky-ocr` as **sealed** variables:
 | Variable | How to create it |
 |---|---|
 | `REDSKY_OCR_DB_PASSWORD` | `openssl rand -hex 24`. Used in `REDSKY_OCR_DATABASE_URL` |
-| `REDSKY_OCR_SERVICE_TOKENS` | `openssl rand -hex 32`. The same value goes on `redsky-web` when its OCR client exists. To rotate, add a second token after a comma, move `redsky-web` to it, then remove the first |
-| `REDSKY_OCR_EVENTS_URL`, `REDSKY_OCR_EVENTS_SECRET` | Only once `redsky-web` has an event receiver: its private URL, and `openssl rand -hex 32` shared with it |
+| `REDSKY_OCR_SERVICE_TOKENS` | `openssl rand -hex 32`. The same value goes on `redsky-web` as `OCR_SERVICE_TOKEN` (step 6). To rotate, add a second token after a comma, move `redsky-web` to it, then remove the first |
+| `REDSKY_OCR_EVENTS_SECRET` | `openssl rand -hex 32`. The same value goes on `redsky-web` as `OCR_EVENTS_SECRET` |
 | `REDSKY_OCR_TWENTY_API_KEY` | Step 4 below |
 | `REDSKY_OCR_TWENTY_WEBHOOK_SECRET` | `openssl rand -hex 32`, without a trailing newline. Also pasted into Twenty's webhook (step 5) |
 
@@ -258,13 +256,27 @@ Set these on `redsky-ocr` as **sealed** variables:
 3. **Create the service** as an empty service named exactly `redsky-ocr` (the private hostname comes from the name), set its settings and variables, connect the repository and deploy. On this first start `REDSKY_OCR_ADMIN_DATABASE_URL` lets it create the `redsky_ocr` login and database on `redsky-postgres`; once `/ready` answers, **delete that variable** and redeploy, so the running service holds no superuser credentials.
 4. **Twenty API key.** In Twenty, **Settings → Roles → Create role** `RedSky OCR`: no access to all records; object permissions **read only** on Attachments, Companies, People, Opportunities, Notes and Tasks, and on every custom object that can hold files (Twenty hides an attachment whose parent record the caller cannot read); no settings or tool permissions; assignable to API keys only. Then **Settings → APIs & Webhooks → Create API key** `redsky-ocr` with that role and a one-year expiry. Paste the key into `REDSKY_OCR_TWENTY_API_KEY`.
 5. **Twenty webhook.** **Settings → APIs & Webhooks → Create webhook**: URL `http://redsky-ocr.railway.internal:8080/api/v1/webhooks/twenty`, events on Attachments (created, deleted, destroyed, restored, or all), secret `REDSKY_OCR_TWENTY_WEBHOOK_SECRET`.
-6. **Check.** Upload a file on any company's Files tab in Twenty. Within a minute the service log shows `job finished` with `outcome: completed`. Logs contain ids and timings only.
+6. **Connect `redsky-web`.** Add these to `redsky-web` → **Variables** (seal the two secrets) and redeploy it. The migration for the `documents` table runs in its pre-deploy step.
+   ```env
+   REDSKY_TENANT_ID=rsm
+   DOCUMENTS_BUCKET=${{redsky-documents.BUCKET}}
+   DOCUMENTS_S3_ENDPOINT=${{redsky-documents.ENDPOINT}}
+   DOCUMENTS_S3_REGION=${{redsky-documents.REGION}}
+   DOCUMENTS_S3_ACCESS_KEY_ID=${{redsky-documents.ACCESS_KEY_ID}}
+   DOCUMENTS_S3_SECRET_ACCESS_KEY=${{redsky-documents.SECRET_ACCESS_KEY}}
+   OCR_URL=http://redsky-ocr.railway.internal:8080
+   OCR_SERVICE_TOKEN=<one of REDSKY_OCR_SERVICE_TOKENS>
+   OCR_EVENTS_SECRET=<REDSKY_OCR_EVENTS_SECRET>
+   ```
+   Then point `redsky-ocr`'s events at `redsky-web` over the private network: `REDSKY_OCR_EVENTS_URL=http://redsky-web.railway.internal:<port>/api/internal/ocr/events`, with the port `redsky-web` listens on (its deploy logs show it, normally `8080`), and set `REDSKY_OCR_TWENTY_TENANT_ID` to the same value as `REDSKY_TENANT_ID`. If the Railway environment predates dual-stack private networking (October 2025), `redsky-web` must listen on IPv6 too: set `HOSTNAME=::` on it.
+7. **Check.** In RedSky, open **Documents**, upload a PDF and wait for **Ready**; open it and compare the text with the file. `redsky-web`'s log shows `Text extraction event` with `outcome: applied`; without it, statuses still update, more slowly, because the page re-reads them. For the Twenty source, upload a file on any company's Files tab in Twenty: within a minute `redsky-ocr`'s log shows `job finished` with `outcome: completed`. Logs contain ids and timings only.
 
 Twenty neither retries webhooks nor sends them while it is rate-limiting, or for records not every role may see. A sweep every ten minutes (`REDSKY_OCR_RECONCILE_INTERVAL_SECONDS`) lists recent attachments with the API key and queues any the webhook missed. Attachments from before the deployment are not processed unless you ask: in the service's shell (`railway ssh`), `redsky-ocr backfill --since 2026-01-01`.
 
 ### Rollback and removal
 
 - A failed health check never replaces the running deployment. To go back, redeploy the last good deployment of `redsky-ocr`; this affects nothing else.
+- To switch Documents off without deleting anything, remove `OCR_URL` (or the `DOCUMENTS_*` variables) from `redsky-web` and redeploy it. The page then says document storage isn't set up; stored files and their text stay where they are.
 - Migrations are additive. To remove the service entirely: delete the Twenty webhook and the SSRF allow-list entry, delete `redsky-ocr`, and drop the `redsky_ocr` database and login on `redsky-postgres`.
 
 ### Cost and scaling
@@ -300,4 +312,5 @@ Railway bills usage. At an idle footprint of about 150 MB and near-zero CPU, the
 | Custom domain | **Unconfigured** |
 | `redsky-ocr` image build, tests, Twenty attachment path | **Verified locally** (Docker, and against a local Twenty 2.44) |
 | `redsky-ocr` and `redsky-documents` on Railway | **Not created**: needs approval and your action (§13) |
-| Web app document upload, OCR client and event receiver | **Not implemented** |
+| Documents page: upload, status, text and tables, search, download, delete, sharing | **Verified locally** against `redsky-ocr` (Docker image), an S3-compatible stand-in and Postgres, in the browser and with the production build |
+| `redsky-ocr` events into `redsky-web` | **Verified locally** (signed delivery applied; a forged event is refused) |

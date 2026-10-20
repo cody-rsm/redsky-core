@@ -20,6 +20,7 @@ export type Resource =
   | { type: 'own'; ownerId: string } // profile, preferences, layout, onboarding, tasks, AI conversations
   | { type: 'workstyle'; ownerId: string } // assessment data: owner only, never admins
   | { type: 'record'; classification: Classification; ownerId?: string | null; teamIds?: ReadonlyArray<string> }
+  | { type: 'document'; ownerId: string; visibility: 'private' | 'firm' } // files uploaded in RedSky
   | { type: 'audit_log' };
 
 export type Action = 'read' | 'write' | 'delete' | 'share';
@@ -40,6 +41,9 @@ export function authorize(actor: Actor, action: Action, resource: Resource): Dec
       return action === 'read' && actor.accessRole === 'admin' ? ALLOW : deny('Audit log is readable by administrators only');
     case 'record':
       return authorizeRecord(actor, action, resource);
+    case 'document':
+      // "Only me" is confidential with no team; "All RSM staff" is internal: anyone reads, only the owner changes.
+      return authorizeRecord(actor, action, { type: 'record', classification: resource.visibility === 'firm' ? 'internal' : 'confidential', ownerId: resource.ownerId });
   }
 }
 

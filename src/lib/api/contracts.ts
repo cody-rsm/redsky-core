@@ -2,6 +2,7 @@
 // raw Twenty, Microsoft Graph or demo-fixture shapes — so data sources can change without touching components.
 import type { IconName } from '@/components/ui/icon';
 import type { AiAnswer, AiProviderKind, RecordKind, SourceRef } from '@/features/ai/types';
+import type { DocumentStatus, DocumentVisibility } from '@/features/documents/catalog';
 import type { ConnectorId } from '@/features/integrations/catalog';
 import type { FocusAreaId } from '@/features/personalization/catalog';
 import type { DashboardLayout, DemoPersonaId, WorkspacePreferences } from '@/features/preferences/schema';
@@ -18,6 +19,7 @@ export type PublicConfigView = {
   aiSimulated: boolean;
   crmConnected: boolean;
   workstyleStorageAvailable: boolean;
+  documentsAvailable: boolean;
   // The firm's time zone; dates and greetings use it so server and browser render the same text.
   timeZone: string;
 };
@@ -161,7 +163,8 @@ export type AiRecommendationView = { id: string; text: string; basis: string; ac
 export type ApprovalView = { id: string; title: string; requestedBy: string; due: string; dueTone: 'ac' | 'wn' | 'tx'; approved: boolean; record: { kind: RecordKind; id: string } };
 
 export type PortfolioView = { name: string; sector: string; update: string; status: string; tone: 'ok' | 'wn' | 'ac' | 'n'; owner: string };
-export type DocumentView = { id: string; name: string; meta: string; kind: string };
+// `href` is set for RedSky's own documents, which open on the Documents page instead of a record preview.
+export type DocumentView = { id: string; name: string; meta: string; kind: string; href?: string };
 export type TeamActivityView = PersonChip & { what: string; when: string };
 
 export type BriefStatTarget = { kind: 'prep'; meetingId: string } | { kind: 'tab'; tab: 'tasks' } | { kind: 'nav'; href: string } | { kind: 'ask'; question: string; key: string } | { kind: 'settings'; tab: 'apps' };
@@ -294,6 +297,39 @@ export type WorkstyleDetail = {
   sharing: { manager: boolean; colleagues: boolean };
   retainOriginal: boolean;
 };
+
+// ---- Documents -----------------------------------------------------------------------------------------------
+
+export type DocumentRow = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  visibility: DocumentVisibility;
+  relatedLabel: string;
+  status: DocumentStatus;
+  statusMessage: string | null;
+  noAi: boolean;
+  pageCount: number | null;
+  owner: { name: string; isYou: boolean };
+  createdAt: string;
+  canChange: boolean;
+};
+
+export type DocumentListResponse = { status: 'ok'; documents: DocumentRow[]; nextCursor: string | null } | { status: 'not_configured' };
+
+export type DocumentContentView =
+  | {
+      status: 'ready';
+      engine: string | null;
+      pageCount: number | null;
+      pages: Array<{ pageNumber: number; text: string; method: string | null }>;
+      tables: Array<{ index: number; pageNumber: number | null; caption: string | null; cells: string[][] }>;
+    }
+  | { status: 'not_ready' | 'no_ai' };
+
+// Snippets mark matches with << and >>; the browser renders them as highlights, never as HTML.
+export type DocumentSearchResponse = { results: Array<{ documentId: string; fileName: string; pageNumber: number; snippet: string }> };
 
 export type ApiErrorBody = { error: { code: string; message: string; issues?: Array<{ path: string; message: string }>; requestId?: string } };
 

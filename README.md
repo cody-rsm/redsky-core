@@ -33,7 +33,7 @@ The approved Claude Design prototype in [`prototype/`](prototype/) is the source
 | Workspace | Command palette, RedSky AI panel, meeting prep and record drawers, quick create, notifications, Settings (7 tabs), People, Pipeline and roadmap module pages, light/dark themes. |
 | AI | Anthropic provider when configured, otherwise "not configured". Demo mode uses the prototype's simulated answers, labelled as simulated. Proposed actions run only after explicit confirmation and server-side authorization. |
 | CRM | Twenty REST adapter with normalized models. Inactive until `TWENTY_API_URL` and `TWENTY_API_KEY` are set. |
-| Documents | `redsky-ocr` in [`services/ocr`](services/ocr/): built and tested, not deployed, and not yet called by the web app. |
+| Documents | Upload PDFs, scans, photos and Office files; RedSky stores them in its own bucket and reads them with `redsky-ocr` ([`services/ocr`](services/ocr/)). Status, extracted text and tables, full-text search, download, delete, and sharing as "Only me" or "All RSM staff". Inactive (and says so) until the bucket and `redsky-ocr` are configured; neither is deployed yet. |
 
 ### Data modes
 
