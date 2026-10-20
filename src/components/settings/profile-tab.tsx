@@ -126,6 +126,8 @@ export function ProfileTab() {
           className="btn btn-sm"
           onClick={async () => {
             await apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+            // A full page load drops every cached view of the signed-out session.
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
             window.location.assign('/login');
           }}
         >

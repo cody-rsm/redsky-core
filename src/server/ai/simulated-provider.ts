@@ -228,14 +228,14 @@ export function simulatedAnswer({ key, ref, context, attention }: SimulatedInput
 
   if (key === 'module') {
     const moduleId = ref && isModuleId(ref) ? ref : null;
-    const module = moduleId ? MODULES[moduleId] : null;
+    const definition = moduleId ? MODULES[moduleId] : null;
     let title = ref ?? '';
     for (const group of NAV_GROUPS) for (const item of group.items) if (item.id === ref) title = item.label;
-    const phase = module && module.phase > 0 ? ROADMAP_PHASES[module.phase - 1] : null;
+    const phase = definition && definition.phase > 0 ? ROADMAP_PHASES[definition.phase - 1] : null;
     return {
-      bottomLine: module?.phase ? `${title} is planned for Phase ${module.phase}.` : `${title} is available now.`,
-      lead: `The ${title} module is planned for ${phase ? `Phase ${module?.phase} (${phase.name})` : 'a later phase'} of the RedSky roadmap. ${module?.desc ?? ''}`,
-      bullets: [...(module?.caps ?? [])],
+      bottomLine: definition?.phase ? `${title} is planned for Phase ${definition.phase}.` : `${title} is available now.`,
+      lead: `The ${title} module is planned for ${phase ? `Phase ${definition?.phase} (${phase.name})` : 'a later phase'} of the RedSky roadmap. ${definition?.desc ?? ''}`,
+      bullets: [...(definition?.caps ?? [])],
       reasoning: 'From the RedSky architecture and roadmap. Timelines are planning estimates.',
       sources: [],
       actions: [],

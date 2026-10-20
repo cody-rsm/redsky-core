@@ -7,7 +7,7 @@ import { AI_STYLES, DENSITIES, WIDGETS, type LayoutItem } from '@/features/perso
 import { DRAFT_TONE_LABELS, NOTIF_MODE_LABELS, PREP_FORMAT_LABELS, TASK_GROUP_LABELS, type DraftTone, type NotifMode, type PrepFormat, type TaskGroup } from '@/features/preferences/schema';
 import type { WorkstyleDetail } from '@/lib/api/contracts';
 import { useViewer } from '@/lib/client/viewer';
-import { viewerDisplay } from '@/lib/client/viewer-display';
+import { dayContext, viewerDisplay } from '@/lib/client/viewer-display';
 
 type Snapshot = { density: string; aiStyle: string; prepFormat: string; taskGroup: string; notifMode: string; draftTone: string; layout: LayoutItem[] };
 
@@ -31,7 +31,7 @@ export function WorkstyleHomePreview({ detail }: { detail: WorkstyleDetail }) {
   const after = mode === 'after';
   const baseIds = baseline ? baseline.layout.filter((item) => item.id !== 'brief').map((item) => `${item.id}:${item.size}`) : [];
   const layout = shown.layout.filter((item) => item.id !== 'brief');
-  const greeting = `Good morning, ${viewerDisplay(viewer).greetingName}`;
+  const greeting = `${dayContext(viewer).greeting}, ${viewerDisplay(viewer).greetingName}`;
 
   return (
     <div className="card" style={{ padding: 16 }}>

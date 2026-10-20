@@ -7,6 +7,9 @@ import { apiFetch, errorMessage } from './api';
 import { queryKeys } from './query-client';
 import { useUiStore } from './ui-store';
 
+// Onboarding blocks Continue while a report is being read.
+export const WORKSTYLE_UPLOAD_KEY = ['workstyle-upload'] as const;
+
 // Assessment data is fetched only while a Workstyle surface is open, and never cached past the session.
 export function useWorkstyle(enabled = true) {
   return useQuery({ queryKey: queryKeys.workstyle, queryFn: () => apiFetch<WorkstyleDetail>('/api/workstyle'), enabled, staleTime: 0, gcTime: 60_000 });
@@ -24,6 +27,7 @@ export function useWorkstyleActions() {
   };
 
   const upload = useMutation({
+    mutationKey: WORKSTYLE_UPLOAD_KEY,
     mutationFn: ({ file, consent }: { file: File; consent: boolean }) => {
       const form = new FormData();
       form.set('report', file);

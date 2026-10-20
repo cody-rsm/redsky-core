@@ -31,6 +31,7 @@ export function DemoSwitcher() {
       resetAi();
       if (result.switchedUser) {
         // A different signed-in person: start from a clean page so nothing from the previous persona lingers.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign('/');
         return;
       }

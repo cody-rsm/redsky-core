@@ -47,7 +47,7 @@ export function HomeView({ tab }: { tab: HomeTab }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <div className="seg" role="tablist" aria-label="Home views">
           {TABS.map((entry) => (
-            <button key={entry.id} type="button" role="tab" aria-selected={tab === entry.id} aria-pressed={tab === entry.id} onClick={() => goTab(entry.id)}>
+            <button key={entry.id} type="button" role="tab" aria-selected={tab === entry.id} onClick={() => goTab(entry.id)}>
               {entry.label}
             </button>
           ))}

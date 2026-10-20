@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
+  // Don't let `next dev` write an AGENTS.md into the repository.
+  agentRules: false,
   turbopack: {
     rules: {
       '*.css': {

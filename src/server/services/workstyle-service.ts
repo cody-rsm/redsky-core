@@ -1,7 +1,7 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 import { DEMO_WS_PROFILE } from '@/demo/sample-records';
-import { WS_CONSENT_VERSION, WS_MAX_UPLOAD_BYTES, WS_RECOMMENDATION_IDS, type WsRecommendationId } from '@/features/workstyle/catalog';
+import { WS_CONSENT_VERSION, WS_MAX_UPLOAD_BYTES, WS_RECOMMENDATION_IDS } from '@/features/workstyle/catalog';
 import { acceptAllPending, wsApply, type WorkstyleBaseline, type WsRecommendationStates } from '@/features/workstyle/apply';
 import { workstyleProfileDraftSchema, workstyleProfileSchema, type WorkstyleProfile, type WorkstyleProfileDraft } from '@/features/workstyle/profile';
 import { suggestFromProfile } from '@/features/workstyle/rules';

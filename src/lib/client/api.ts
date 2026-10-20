@@ -23,6 +23,8 @@ export async function apiFetch<TResponse>(path: string, { method = 'GET', body, 
     signal,
   });
   if (response.status === 401 && typeof window !== 'undefined') {
+    // A full page load so no cached data from the expired session survives.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
     throw new ApiError(401, 'unauthenticated', 'Sign in to continue');
   }

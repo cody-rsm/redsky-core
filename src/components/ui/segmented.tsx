@@ -24,7 +24,7 @@ export function Segmented<TValue extends string>({ options, value, onChange, lab
           type="button"
           role={role === 'tablist' ? 'tab' : undefined}
           aria-selected={role === 'tablist' ? option.value === value : undefined}
-          aria-pressed={option.value === value}
+          aria-pressed={role === 'tablist' ? undefined : option.value === value}
           title={option.title}
           onClick={() => onChange(option.value)}
         >
