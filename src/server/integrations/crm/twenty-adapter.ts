@@ -2,7 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { CrmError, type CrmAdapter, type CrmCompany, type CrmContact, type CrmHealth, type CrmListOptions, type CrmOpportunity, type CrmPage } from './types';
 
-// Twenty CRM REST adapter (Twenty v2.44, the rsm-crm fork). Contract taken from the fork's source:
+// Twenty CRM REST adapter (Twenty v2.44, the cody-rsm/redsky-twenty fork). Contract taken from the fork's source:
 //   packages/twenty-server/src/engine/api/rest/core/controllers/rest-api-core.controller.ts  (GET /rest/{plural})
 //   list envelope { data: { <plural>: [...] }, totalCount, pageInfo { hasNextPage, endCursor } }
 //   single envelope { data: { <singular>: {...} } }; cursor pagination via `starting_after`; limit ≤ 200

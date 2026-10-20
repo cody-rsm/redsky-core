@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { DocumentUploadForm } from '@/components/documents/upload-form';
 import { Modal, DialogTitle } from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icon';
 import { Segmented } from '@/components/ui/segmented';
@@ -22,7 +23,7 @@ const UNAVAILABLE_NOTE: Partial<Record<CreateType, string>> = {
   contact: 'Adding contacts needs the RSM CRM connection, which isn’t set up yet.',
   meeting: 'Logging meetings needs the RSM CRM connection, which isn’t set up yet.',
   opportunity: 'Adding opportunities needs the CRM deal model, planned for Phase 3.',
-  document: 'Uploading documents needs OneDrive / SharePoint, which isn’t connected yet.',
+  document: 'Document storage isn’t set up yet. Your administrator connects it.',
 };
 
 const formSchema = z.object({
@@ -36,10 +37,14 @@ type FormValues = z.infer<typeof formSchema>;
 export function QuickCreateModal() {
   const create = useUiStore((state) => state.create);
   const close = useUiStore((state) => state.closeCreate);
+  const viewer = useViewer();
   const definition = create ? CREATE_DEFINITIONS[create.type] : null;
+  // Real uploads whenever document storage is configured, in either data mode: documents are RedSky's own data.
+  const realUpload = create?.type === 'document' && viewer.config.documentsAvailable;
   return (
     <Modal open={Boolean(create)} onOpenChange={(open) => !open && close()} label={definition?.title ?? 'Create'} hiddenLabel={false} zIndex={67} wrapStyle={{ paddingTop: '14vh' }} style={{ width: 'min(540px,100%)' }}>
-      {create ? <CreateForm key={create.type} type={create.type} prefill={create.prefill} onClose={close} /> : null}
+      {create && realUpload ? <DocumentUploadForm onClose={close} /> : null}
+      {create && !realUpload ? <CreateForm key={create.type} type={create.type} prefill={create.prefill} onClose={close} /> : null}
     </Modal>
   );
 }
@@ -148,7 +153,7 @@ function CreateForm({ type, prefill, onClose }: { type: CreateType; prefill: Cre
         ) : (
           <div className="note" style={{ fontSize: 12 }}>
             <Icon name="shield" size="s" style={{ marginTop: 1 }} />
-            <span>{type === 'document' && !demo ? definition.note.replace('in this prototype are simulated — files stay on your device', 'are not available yet') : definition.note}</span>
+            <span>{definition.note}</span>
           </div>
         )}
         {serverError ? (

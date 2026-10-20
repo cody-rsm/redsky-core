@@ -70,10 +70,22 @@
 
 RedSky uses its own PostgreSQL service and the `redsky` schema. The migration runner refuses any database containing Twenty's schemas or another application's tables, and it serializes concurrent deploys with an advisory lock. RedSky never queries Twenty's database; CRM data comes only through the authenticated REST adapter.
 
-CRM access through the API has two known limits until per-person access is built ([`CRM_INTEGRATION.md`](CRM_INTEGRATION.md), "Who sees what"):
-- **Visibility.** A Twenty API key covers the whole workspace, so every RedSky user sees what the key can see. Connect it only to staging data until per-person access exists.
-- **Attribution.** Planned writes would appear in Twenty as made by the key. RedSky's audit log records the real person.
+Permissions are enforced where the record lives ([`DECISIONS.md`](DECISIONS.md) 2): for CRM records, that is Twenty. The target is for RedSky to call Twenty as the signed-in user (decision 7, open), so Twenty's roles and deal walls apply and Twenty credits each change to the person who made it. Until then, the read-only adapter uses one API key ([`CRM_INTEGRATION.md`](CRM_INTEGRATION.md), "Reading and writing as the user"):
+- **Visibility.** The key's role decides what every RedSky user sees. Give it a dedicated read-only role, and connect it only to pre-production data.
+- **No writes.** RedSky doesn't write to Twenty with a shared key; writing waits for per-user access.
 
 ## Secrets
 
-`.env*` (except `.env.example`), PDFs and key files are git-ignored and excluded from the Docker build context. Secrets live in `redsky-web`'s service variables (not project Shared Variables, which Twenty's services can see), sealed where possible, and in RSM's password manager. Losing `REDSKY_ENCRYPTION_KEY` makes stored Workstyle data unreadable by design.
+`.env*` (except `.env.example`), PDFs and key files are git-ignored and excluded from the Docker build context. Secrets are service variables on the service that uses them (not project Shared Variables, which Twenty's services can see), sealed where possible, and kept in RSM's password manager ([`DECISIONS.md`](DECISIONS.md) 13). A secret two services share, such as `redsky-ocr`'s service token, is set on both. Losing `REDSKY_ENCRYPTION_KEY` makes stored Workstyle data unreadable by design.
+
+## Documents
+
+- **Who sees a document.** "Only me" documents are readable and changeable by their uploader alone; administrators included get nothing. "All RSM staff" documents are readable by anyone signed in, and only the uploader can retry or delete them (`document` in `src/server/security/access-policy.ts`). A document someone may not read answers 404, exactly like a missing one, for its metadata, text, original file and search hits.
+- **Uploads are untrusted.** The type comes from the file's bytes, not its name or the browser's Content-Type: PDF, PNG, JPEG, TIFF, and Word, PowerPoint and Excel containers only. Files are capped at 50 MB, stored under a generated key, and read only by `redsky-ocr`, which refuses macros, encrypted files and archive bombs. Originals are always served as downloads (`Content-Disposition: attachment`, `nosniff`, a sandboxing CSP), never rendered in RedSky's origin. Extracted text is rendered as text; search highlights are built from markers, never from HTML.
+- **Service calls.** `redsky-web` calls `redsky-ocr` with a service token over the private network, naming the tenant and the signed-in user after authorizing them itself. Events back from `redsky-ocr` are accepted only with a valid HMAC signature and a timestamp within five minutes, and each event id is applied once.
+- **Audit.** Uploads, reads of extracted text, downloads, retries and deletions are audited with ids only, never file names or content. Logs never carry document text or search terms.
+- **Deletion.** Deleting a document removes the text `redsky-ocr` extracted, then the original in the bucket, then RedSky's record; a failure stops before anything visible disappears. `_NOAI` files are stored but never read.
+
+## Services behind the API
+
+Services under `services/` are private: no public domain, reachable only on Railway's private network, and called only by the RedSky API, which authorizes the user first and passes the tenant and user with a service token ([`DECISIONS.md`](DECISIONS.md) 2 and 4). Each service has its own database login and cannot read RedSky's or Twenty's tables. Events they send back are HMAC-signed and timestamped. `redsky-ocr`'s security model is in [`services/ocr/README.md`](../services/ocr/README.md#security).

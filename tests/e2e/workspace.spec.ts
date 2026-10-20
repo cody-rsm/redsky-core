@@ -49,3 +49,15 @@ test('RedSky AI answers with cited sources', async ({ page }) => {
   await expect(page.getByText(/Simulated/).first()).toBeVisible();
   await expect(page.getByText(/^Sources/).first()).toBeVisible();
 });
+
+// CI runs without a documents bucket or redsky-ocr, so the page must say so instead of offering an upload.
+test('Documents explains when document storage is not set up', async ({ page }) => {
+  await signInToWorkspace(page);
+  await page.getByRole('navigation', { name: 'Modules' }).getByRole('button', { name: 'Documents' }).click();
+  await page.waitForURL(/\/documents$/);
+  await expect(page.getByRole('heading', { name: 'Documents', level: 1 })).toBeVisible();
+  await expect(page.getByText('Document storage isn’t set up yet')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Upload', exact: true })).toHaveCount(0);
+  const response = await page.request.get('/api/documents');
+  expect(await response.json()).toEqual({ status: 'not_configured' });
+});

@@ -2,6 +2,8 @@
 
 Status: first release (onboarding + home), deployed at `redsky.rsmcapital.com`. Later decisions are in [`DECISIONS.md`](DECISIONS.md); the CRM plan is in [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md). Source of truth for UI/UX: `prototype/` (the approved Claude Design package — `prototype/docs/SPEC.md`, `prototype/source/Main.dc.html`, `prototype/docs/screenshots/`).
 
+This plan covers the web app's first release. The platform it belongs to (layers, services, repositories and the rules between them) is in [`ARCHITECTURE.md`](ARCHITECTURE.md#platform-structure) and [`DECISIONS.md`](DECISIONS.md).
+
 ## 1. Prototype audit
 
 | Area | What the prototype has | Disposition |
@@ -44,7 +46,7 @@ Twenty CRM (separate Railway service) — reached only via authenticated server-
 3. **shadcn/ui pattern, not shadcn defaults.** Accessible behavior comes from Radix primitives in `src/components/ui/*` (copy-in components, shadcn conventions); their look is the prototype's classes.
 4. **Drizzle ORM + postgres.js.** SQL-first migrations in `drizzle/`, all tables in a dedicated `redsky` schema. The migration runner refuses to run against a database that contains Twenty's schemas or another app's marker.
 5. **Auth:** Microsoft Entra ID via OIDC Authorization Code + PKCE (openid-client), tenant-restricted, server-side sessions (hashed opaque tokens in Postgres, `__Host-` cookie). Dev-only persona sign-in exists **only when `NODE_ENV !== 'production'`** — it cannot be enabled in a production build. With no Entra configuration, production serves a "sign-in not configured" page and all APIs return 401.
-6. **Focus areas ≠ permissions.** The 9 onboarding "roles" are personalization (widgets, navigation emphasis). Access control uses access roles aligned with `rsm-crm/RSM_ARCHITECTURE.md §12` (member/admin now; classification tiers and team/deal-wall hooks designed in).
+6. **Focus areas ≠ permissions.** The 9 onboarding "roles" are personalization (widgets, navigation emphasis). Access control uses access roles aligned with `redsky-twenty/RSM_ARCHITECTURE.md §12` (member/admin now; classification tiers and team/deal-wall hooks designed in).
 7. **Explicit data modes.** `REDSKY_DATA_MODE=demo` serves the prototype's sample data, labeled everywhere. `production` never falls back to sample data: unconnected sources render designed empty states. RedSky-native data (profile, preferences, layout, onboarding, tasks, workstyle, AI conversations) is real in both modes.
 8. **Workstyle Intelligence:** consent-gated PDF upload (type, size and magic-byte checks), real text extraction for text-based PDFs (`unpdf`), a heuristic TTI parser whose every value is shown for employee review, an honest unreadable/scanned state, manual entry, and explicit threshold rules for recommendations. The extracted profile is encrypted (AES-256-GCM) and readable only by its owner, every read is audited, and removal is a hard delete. The original PDF is not retained unless retention is explicitly enabled.
 9. **AI:** provider interface with an Anthropic adapter (server-only key) and a simulated provider (demo mode only). Context retrieval is permission-scoped and limited to RedSky-native data that actually exists. Proposed actions are structured and executed only after explicit confirmation plus a server-side authorization check. Every confirmed action is audited and idempotent.
@@ -69,4 +71,4 @@ Twenty CRM (separate Railway service) — reached only via authenticated server-
 | Twenty API URL + a dedicated API key with a scoped role | CRM-backed People/records |
 | Official connector logos + brand-use permission | 9 monogram connectors |
 | Legal review of Workstyle consent text and retention; TTI parsing licence | Workstyle in production |
-| Naming: the Twenty deployment is itself branded "RedSky" (emails, tab title) | Decided 2026-10-20: RedSky is the only staff-facing app; rename Twenty's branding for administrators ([`DECISIONS.md`](DECISIONS.md) 3) |
+| Naming: the Twenty deployment is itself branded "RedSky" (emails, tab title) | Decided 2026-10-20: RedSky is the only staff-facing app; rename Twenty's branding for administrators ([`DECISIONS.md`](DECISIONS.md) 9) |

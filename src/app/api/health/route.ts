@@ -15,6 +15,7 @@ export async function GET() {
       checks: {
         database,
         auth: config.auth.mode === 'none' ? 'unconfigured' : 'configured',
+        documents: config.documents.available ? 'configured' : 'unconfigured',
         mode: config.dataMode,
       },
     },

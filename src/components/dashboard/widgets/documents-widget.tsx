@@ -11,9 +11,9 @@ export function DocumentsWidget({ slot }: { slot: WidgetSlot }) {
   const router = useRouter();
   const query = useWidget('documents');
   const { openRecord } = useWorkspaceActions();
-  const sub = query.data ? (query.data.status === 'ok' ? 'This week' : 'Not connected') : undefined;
+  const sub = query.data ? (query.data.status === 'ok' ? (query.data.sample ? 'This week' : 'Recent') : 'Not connected') : undefined;
   return (
-    <WidgetFrame slot={slot} sub={sub} more={{ label: 'Documents', onClick: () => router.push('/m/documents') }}>
+    <WidgetFrame slot={slot} sub={sub} more={{ label: 'Documents', onClick: () => router.push('/documents') }}>
       <WidgetBody query={query} rows={4}>
         {(data) => (
           <div className="wb">
@@ -22,7 +22,7 @@ export function DocumentsWidget({ slot }: { slot: WidgetSlot }) {
               <div key={item.id} className="row" style={{ alignItems: 'center' }}>
                 <Tile icon="doc" small />
                 <div className="grow">
-                  <button type="button" className="rel ell" style={{ maxWidth: '100%', display: 'block' }} onClick={() => openRecord('doc', item.id)}>
+                  <button type="button" className="rel ell" style={{ maxWidth: '100%', display: 'block' }} onClick={() => (item.href ? router.push(item.href) : openRecord('doc', item.id))}>
                     {item.name}
                   </button>
                   <div className="faint ell" style={{ fontSize: 11.5, marginTop: 2 }}>

@@ -5,6 +5,7 @@ import type { NotConnectedSource, RecordPreview, SearchResult, WidgetResponse } 
 import { getCrmAdapter } from '@/server/integrations/crm';
 import { CrmError } from '@/server/integrations/crm/types';
 import { logger } from '@/server/logging/logger';
+import { documentsConfigured, recentDocumentViews } from '@/server/services/document-service';
 import type { ProviderWidgetId, WorkspaceDataProvider } from './types';
 
 // Production never shows sample content. A widget whose source system is not connected renders the designed
@@ -31,8 +32,10 @@ const PLANNED_SOURCES: Record<Exclude<ProviderWidgetId, 'airecs'>, NotConnectedS
 export const productionProvider: WorkspaceDataProvider = {
   mode: 'production',
 
-  async widget(id) {
+  async widget(id, context) {
     if (id === 'airecs') return { status: 'ok', sample: false, data: { items: [] } } as WidgetResponse<never>;
+    // Files uploaded in RedSky; SharePoint documents join them once that connector exists.
+    if (id === 'documents' && documentsConfigured()) return { status: 'ok', sample: false, data: { items: await recentDocumentViews(context.actor, 12) } } as WidgetResponse<never>;
     return { status: 'not_connected', source: PLANNED_SOURCES[id as Exclude<ProviderWidgetId, 'airecs'>] };
   },
 

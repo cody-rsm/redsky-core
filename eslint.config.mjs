@@ -17,5 +17,7 @@ export default defineConfig([
     files: ['scripts/**', 'src/server/logging/**'],
     rules: { 'no-console': 'off' },
   },
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'dist/**', 'next-env.d.ts', 'prototype/**', 'playwright-report/**', 'test-results/**']),
+  // services/ holds other runtimes (redsky-ocr is Python, with its own checks); a local virtualenv there ships
+  // third-party JavaScript that is not ours to lint.
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'dist/**', 'next-env.d.ts', 'prototype/**', 'playwright-report/**', 'test-results/**', 'services/**']),
 ]);
