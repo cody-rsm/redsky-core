@@ -24,6 +24,7 @@ export const NAV_GROUPS: ReadonlyArray<NavGroup> = [
       { id: 'tasks', label: 'My Tasks', icon: 'tasks', badge: 'tasks' },
       { id: 'calendar', label: 'Calendar', icon: 'calendar' },
       { id: 'meetings', label: 'Meetings', icon: 'meetings' },
+      { id: 'documents', label: 'Documents', icon: 'doc' },
     ],
   },
   {
@@ -57,10 +58,9 @@ export const NAV_GROUPS: ReadonlyArray<NavGroup> = [
     ],
   },
   {
-    id: 'knowledge',
-    label: 'Knowledge & Intelligence',
+    id: 'intelligence',
+    label: 'Intelligence',
     items: [
-      { id: 'documents', label: 'Documents', icon: 'doc' },
       { id: 'research', label: 'Research', icon: 'book' },
       { id: 'intelligence', label: 'Intelligence', icon: 'globe' },
       { id: 'ai', label: 'RedSky AI', icon: 'ai' },
@@ -120,8 +120,8 @@ export const MODULES: Record<ModuleId, ModuleDefinition> = {
   energy: { group: 'Operations', phase: 3, desc: 'Energy and infrastructure project development — sites, permits, partners and capital.', caps: ['Site and permit tracking', 'Partner and offtaker records', 'Regulatory proceedings', 'Capital stack and milestones'] },
   gov: { group: 'Operations', phase: 3, desc: 'Government affairs: legislation, proceedings, officials and coalition work.', caps: ['Bill and proceeding tracking', 'Official-interaction logging', 'Coalition and stakeholder maps', 'LegiStorm integration (planned)'] },
   bd: { group: 'Operations', phase: 3, desc: 'Business development: partnerships, introductions and strategic opportunities.', caps: ['Partnership pipeline', 'Introduction tracking', 'Partner mapping', 'Follow-up automation with approval'] },
-  research: { group: 'Knowledge & Intelligence', phase: 2, desc: "RSM's institutional knowledge — memos, notes and research — in one searchable library.", caps: ['Institutional knowledge base', 'Ask questions across sources', 'Cited answers', 'Research briefs'] },
-  intelligence: { group: 'Knowledge & Intelligence', phase: 2, desc: 'A unified intelligence feed across markets, portfolio companies, energy and policy.', caps: ['Company and people alerts', 'Policy and regulatory updates', 'Why-it-matters summaries', 'Saved and shared items'] },
+  research: { group: 'Intelligence', phase: 2, desc: "RSM's institutional knowledge — memos, notes and research — in one searchable library.", caps: ['Institutional knowledge base', 'Ask questions across sources', 'Cited answers', 'Research briefs'] },
+  intelligence: { group: 'Intelligence', phase: 2, desc: 'A unified intelligence feed across markets, portfolio companies, energy and policy.', caps: ['Company and people alerts', 'Policy and regulatory updates', 'Why-it-matters summaries', 'Saved and shared items'] },
   help: { group: 'Support', phase: 0, desc: 'Guides, keyboard shortcuts and a direct line to the RedSky team.', caps: ['⌘K — search and commands', '⌘J — Ask RedSky', 'Esc — close panels', 'Send feedback to the RedSky team'] },
 };
 

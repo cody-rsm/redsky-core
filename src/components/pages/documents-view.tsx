@@ -39,7 +39,7 @@ export function DocumentsView({ openId }: { openId: string | null }) {
     <div className="page a-in">
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <div className="grow">
-          <div className="lbl">Knowledge & Intelligence</div>
+          <div className="lbl">Workspace</div>
           <h1 className="serif" style={{ fontSize: 32, marginTop: 4 }}>
             Documents
           </h1>
