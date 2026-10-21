@@ -1,6 +1,6 @@
 # Deploying RedSky to Railway
 
-RedSky is added to the **existing** Railway project as two new services:
+RedSky is added to the **existing** Railway project as these services:
 
 | New service | Source | Role |
 |---|---|---|

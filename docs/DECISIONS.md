@@ -131,7 +131,7 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 
 ## 9. RedSky is the only staff-facing application
 
-**Decision.** Staff do all their work in RedSky, CRM work included, whichever system owns the record (decision 1). Twenty's screens are for one or two administrators: imports, bulk clean-up, data-model changes, mailbox-sync setup. Recorded in `redsky-twenty` as its decision 12.
+**Decision.** Staff do all their work in RedSky, CRM work included, whichever system owns the record (decision 1). Twenty's screens are for one or two administrators: imports, bulk clean-up, data-model changes, mailbox-sync setup. Recorded in `redsky-twenty` as its decision 11.
 
 **Why.** One place to work; no switching between two products that look different and are both called "RedSky".
 
