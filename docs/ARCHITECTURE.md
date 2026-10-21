@@ -52,9 +52,9 @@ flowchart LR
 | Railway service | From | Role | State |
 |---|---|---|---|
 | `redsky-web` | `redsky-core`, root `Dockerfile` | Frontend and RedSky API in one Next.js app, at `redsky.rsmcapital.com` (decision 12). They can be split into two services later without changing any contract | Deployed |
-| `redsky-postgres` | Railway PostgreSQL | RedSky's data: schema `redsky` for `redsky-web`, database `redsky_ocr` for `redsky-ocr` | Deployed (schema `redsky`) |
-| `redsky-documents` | Railway bucket | Originals uploaded in RedSky | Built with Documents, not created on Railway yet |
-| `redsky-ocr` | `redsky-core`, `services/ocr` | Document extraction. Private | Built and tested, not deployed |
+| `redsky-postgres` | Railway PostgreSQL | RedSky's data: schema `redsky` for `redsky-web`, database `redsky_ocr` for `redsky-ocr` | Deployed (schema `redsky`, database `redsky_ocr`) |
+| `redsky-documents` | Railway bucket | Originals uploaded in RedSky | Deployed |
+| `redsky-ocr` | `redsky-core`, `services/ocr` | Document extraction. Private | Deployed (stage 1). The Twenty attachment source (stage 2) is off |
 | Sync worker | `redsky-core` | Scheduled connector syncs | Not built: added when the first connector needs one |
 | `twenty-server`, `twenty-worker`, `Postgres`, `Redis`, `Bucket` | `redsky-twenty` | Twenty CRM and its own storage | Running (pre-production) |
 

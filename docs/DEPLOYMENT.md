@@ -24,7 +24,7 @@ RedSky is added to the **existing** Railway project as these services:
 >
 > **Used in production:** these steps were followed for the production environment on 2026-10-20 (services, custom domain, Entra sign-in). See the checklist at the end for what is done and what remains.
 >
-> **Not applied yet:** §13 (Documents and `redsky-ocr`). Its Railway settings come from Railway's documentation and from `redsky-twenty/rsm/deploy/railway/README.md`.
+> **Applied since:** §13 stage 1 (Documents and `redsky-ocr`). Stage 2 (Twenty attachments) is not.
 
 ---
 
@@ -306,7 +306,7 @@ TWENTY_OAUTH_CLIENT_SECRET=<clientSecret>
 
 ## 13. Optional: Documents and `redsky-ocr`
 
-The Documents page lets people upload files that RedSky stores in its own bucket and reads with `redsky-ocr`, which extracts text, tables and page structure. Design, API, events and security model: [`services/ocr/README.md`](../services/ocr/README.md). Status: built and tested locally, **not deployed**. Nothing below has been applied to the Railway project. Until it is, Documents tells people that document storage isn't set up yet.
+The Documents page lets people upload files that RedSky stores in its own bucket and reads with `redsky-ocr`, which extracts text, tables and page structure. Design, API, events and security model: [`services/ocr/README.md`](../services/ocr/README.md). Status: **stage 1 deployed**; stage 2 not. Without `OCR_URL` or the `DOCUMENTS_*` variables, Documents tells people that document storage isn't set up.
 
 It deploys in two stages:
 - **Stage 1: files uploaded in RedSky.** The bucket, `redsky-ocr` and `redsky-web`'s variables. Nothing changes on the Twenty services.
@@ -427,8 +427,8 @@ Railway bills usage. At an idle footprint of about 150 MB and near-zero CPU, the
 | `redsky-ocr` image build, tests, Twenty attachment path | **Verified locally** when built (Docker, and against a local Twenty 2.44) |
 | Documents page: upload, status, text and tables, search, download, delete, sharing | **Verified locally** when built, against `redsky-ocr` (Docker image), an S3-compatible stand-in and Postgres, in the browser and with the production build |
 | `redsky-ocr` events into `redsky-web` | **Verified locally** when built (signed delivery applied; a forged event is refused) |
-| `documents` table migration (`drizzle/0001_documents.sql`) | Runs in `redsky-web`'s pre-deploy step on the next deployment from `main`; additive. Documents shows "not set up" until §13 is done |
-| `redsky-ocr` and `redsky-documents` on Railway | **Not created**: needs approval and your action (§13, stage 1) |
+| `documents` table migration (`drizzle/0001_documents.sql`) | **Applied** in `redsky-web`'s pre-deploy step; additive |
+| `redsky-ocr` and `redsky-documents` on Railway | **Done** (§13, stage 1) |
 | `redsky-ocr` Twenty attachment source | **Off**: changes Twenty's services; turn on with per-user access (§13, stage 2) |
 
-Status as reported on 2026-10-20. Update this table as items change.
+Status as of 2026-10-21. Update this table as items change.

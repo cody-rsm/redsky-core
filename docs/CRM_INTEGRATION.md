@@ -26,7 +26,7 @@ Why Twenty:
 | Edit a record's details | RedSky record page | Step 3. Today's preview is a read-only drawer |
 | Email and meeting history with someone | RedSky record timeline, filled by Twenty's email/calendar sync | Step 3 |
 | Connect their Outlook mailbox | Twenty, once, at setup: Twenty only starts it from the person's own Twenty session, and has no organization-wide sync | Step 4 |
-| Upload, read and search documents | RedSky Documents (`redsky-documents` bucket, `redsky-ocr`) | Built, not deployed ([`DEPLOYMENT.md`](DEPLOYMENT.md) §13, stage 1) |
+| Upload, read and search documents | RedSky Documents (`redsky-documents` bucket, `redsky-ocr`) | Deployed (stage 1: files uploaded in RedSky). Twenty attachments are stage 2 |
 | Deals and pipeline | RedSky Pipeline, on `rsm-core`'s `deal` object in Twenty | Step 5 |
 | Tasks | RedSky My Tasks only | Built. Twenty's task list is never shown to staff |
 | Imports, bulk clean-up, new fields, data-model changes | Twenty, administrators only | Exists |

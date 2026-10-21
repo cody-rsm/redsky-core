@@ -13,7 +13,7 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 | 5 | Two repositories: `redsky-core` for the platform, `redsky-twenty` for the CRM | Decided | 2026-10-20 |
 | 6 | OCRmyPDF (searchable-PDF copies) | Open: waits on the AGPL position | |
 | 7 | How the RedSky API reads Twenty as the signed-in user | Resolved by 16 | 2026-10-21 |
-| 8 | Document OCR as a private RedSky service (`redsky-ocr`) | Proposed: built, not deployed | 2026-10-20 |
+| 8 | Document OCR as a private RedSky service (`redsky-ocr`) | Decided; stage 1 deployed, stage 2 waits on per-person access | 2026-10-20 |
 | 9 | RedSky is the only staff-facing application | Decided | 2026-10-20 |
 | 10 | The CRM reaches staff only after the write path and record pages | Decided | 2026-10-20 |
 | 11 | Market and research data is enrichment; adding to the CRM is explicit | Proposed | |
@@ -116,7 +116,7 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 
 ## 8. Document OCR as a private RedSky service (`redsky-ocr`)
 
-**Proposed.** Built and tested in `services/ocr`; not deployed. Supersedes `redsky-twenty` decision 10, which placed it in that repository as a Twenty side service.
+**Decided.** Built in `services/ocr`; stage 1 (files uploaded in RedSky) is deployed, stage 2 (Twenty attachments) waits on per-person access ([`DEPLOYMENT.md`](DEPLOYMENT.md) §13). Supersedes `redsky-twenty` decision 10, which placed it in that repository as a Twenty side service.
 
 **Decision:**
 - Extract text, tables and page structure with a Python service: Docling and Tesseract are Python, and OCR is heavy compute that should not run in the web process.
@@ -125,7 +125,7 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 - It follows decisions 2 to 4: private, called by the RedSky API with a service token naming the tenant and user, reading originals from sources, keeping derived data in its own `redsky_ocr` database on `redsky-postgres`, and sending signed events.
 
 **Open points:**
-1. Approve deploying it (`docs/DEPLOYMENT.md` §13, stage 1: files uploaded in RedSky, no Twenty changes), and later the Twenty-side changes for the attachment source (stage 2, with per-user access): one SSRF allow-list entry, a read-only role and API key, a webhook.
+1. Approve the Twenty-side changes for the attachment source (stage 2, with per-user access): one SSRF allow-list entry, a read-only role and API key, a webhook.
 2. Confirm the provenance and licence of IBM's `docling-layout-heron` model on its model card (RT-DETRv2 architecture, first published by Baidu researchers; the weights are IBM's). The build environment could not reach Hugging Face to check.
 3. Whether `_NOAI` should also block plain OCR, as implemented, or only AI use of its output.
 
@@ -178,7 +178,7 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 
 ## 14. No Redis until a feature needs one
 
-**Decision.** RedSky runs on `redsky-web` and `redsky-postgres`, plus `redsky-ocr` and the `redsky-documents` bucket once Documents is deployed (decisions 3 and 8). Sessions are in Postgres, profile photos are small and stored in Postgres, Workstyle PDFs aren't kept by default, and `redsky-ocr` queues its jobs in a Postgres table (decision 4).
+**Decision.** RedSky runs on `redsky-web` and `redsky-postgres`, plus `redsky-ocr` and the `redsky-documents` bucket (decisions 3 and 8). Sessions are in Postgres, profile photos are small and stored in Postgres, Workstyle PDFs aren't kept by default, and `redsky-ocr` queues its jobs in a Postgres table (decision 4).
 
 **Revisit when:**
 - running more than one `redsky-web` replica, which needs shared rate limits;

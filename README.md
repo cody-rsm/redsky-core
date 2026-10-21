@@ -22,7 +22,7 @@ The layer map, services, where new work goes and the known gaps are in [`docs/AR
 | Path | What | Railway service |
 |---|---|---|
 | `/` | The RedSky web app: frontend and RedSky API (Next.js) | `redsky-web` |
-| [`services/ocr`](services/ocr/) | `redsky-ocr`: self-hosted document OCR and extraction (Python, Docling and Tesseract) | `redsky-ocr` (not deployed yet) |
+| [`services/ocr`](services/ocr/) | `redsky-ocr`: self-hosted document OCR and extraction (Python, Docling and Tesseract) | `redsky-ocr` |
 
 The approved Claude Design prototype in [`prototype/`](prototype/) is the source of truth for the UI. This app reproduces it as production code.
 
@@ -37,7 +37,7 @@ The approved Claude Design prototype in [`prototype/`](prototype/) is the source
 | Workspace | Command palette, RedSky AI panel, meeting prep and record drawers, quick create, notifications, Settings (7 tabs), People, Pipeline and roadmap module pages, light/dark themes. |
 | AI | Anthropic provider when configured, otherwise "not configured". Demo mode uses the prototype's simulated answers, labelled as simulated. Proposed actions run only after explicit confirmation and server-side authorization. |
 | CRM | Read-only Twenty adapter with normalized models, used as each person: they connect once through Twenty's OAuth (People or Settings › Connected apps), and RedSky reads Twenty with their own token. Inactive until the OAuth settings are configured ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §10). Writing, editable record pages, mailbox setup and deals are the next roadmap steps ([`docs/CRM_INTEGRATION.md`](docs/CRM_INTEGRATION.md)). |
-| Documents | Upload PDFs, scans, photos and Office files; RedSky stores them in its own bucket and reads them with `redsky-ocr` ([`services/ocr`](services/ocr/)). Status, extracted text and tables, full-text search, download, delete, and sharing as "Only me" or "All RSM staff". Inactive (and says so) until the bucket and `redsky-ocr` are configured; neither is deployed yet. |
+| Documents | Upload PDFs, scans, photos and Office files; RedSky stores them in its own bucket and reads them with `redsky-ocr` ([`services/ocr`](services/ocr/)). Status, extracted text and tables, full-text search, download, delete, and sharing as "Only me" or "All RSM staff". Deployed for files uploaded in RedSky (stage 1); Twenty attachments are stage 2 ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §13). |
 
 ### Data modes
 
