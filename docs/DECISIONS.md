@@ -6,13 +6,13 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 
 | # | Decision | Status | Date |
 |---|---|---|---|
-| 1 | One owner per record type; Twenty is replaced one area at a time | Decided | 2026-10-20 |
+| 1 | One owner per record type; Twenty is replaced one area at a time | Decided; its order of areas superseded by 15 | 2026-10-20 |
 | 2 | One sign-in (Entra ID); permissions are enforced where the record lives | Decided | 2026-10-20 |
 | 3 | Documents live in RedSky storage; SharePoint stays the deal-system home | Decided | 2026-10-20 |
 | 4 | Services talk over versioned HTTP APIs and signed events, never shared queues | Decided | 2026-10-20 |
 | 5 | Two repositories: `redsky-core` for the platform, `redsky-twenty` for the CRM | Decided | 2026-10-20 |
 | 6 | OCRmyPDF (searchable-PDF copies) | Open: waits on the AGPL position | |
-| 7 | How the RedSky API reads Twenty as the signed-in user | Open | |
+| 7 | How the RedSky API reads Twenty as the signed-in user | Resolved by 16 | 2026-10-21 |
 | 8 | Document OCR as a private RedSky service (`redsky-ocr`) | Proposed: built, not deployed | 2026-10-20 |
 | 9 | RedSky is the only staff-facing application | Decided | 2026-10-20 |
 | 10 | The CRM reaches staff only after the write path and record pages | Decided | 2026-10-20 |
@@ -20,6 +20,8 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 | 12 | Production address is `redsky.rsmcapital.com` | Decided | 2026-10-20 |
 | 13 | Each RedSky service's secrets are its own service variables | Decided | 2026-10-20 |
 | 14 | No Redis until a feature needs one | Decided | 2026-10-20 |
+| 15 | Twenty is RedSky's CRM back end, deals included | Decided | 2026-10-21 |
+| 16 | RedSky reads and writes Twenty as each person through Twenty's OAuth | Decided; on trial in staging | 2026-10-21 |
 
 ## 1. One owner per record type; Twenty is replaced one area at a time
 
@@ -39,6 +41,8 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
   4. Make Twenty read-only for that area, then remove it there.
 - Records keep links to records in other systems as `{system, object, id}` (for example `twenty/company/<uuid>`), so links survive a move: the move rewrites them.
 - Scope: build the RedSky API, frontend, Documents and identity first. Other areas wait until those work.
+
+**Note (2026-10-21).** The order of areas ("Documents first, then Deals") is superseded by decision 15: deals are built in Twenty, which stays the CRM back end. The rule of one owner per record type, and the steps for moving an area, still apply.
 - Why Twenty keeps CRM records for now: it already provides the CRM data model with RSM's custom objects, Microsoft 365 email and calendar sync, and a data-admin UI. Staff still work only in RedSky (decision 9). Twenty holds no real client data until the Enterprise-free build exists (`redsky-twenty` decision 1) and RedSky reads it per user (decision 7).
 
 ## 2. One sign-in (Entra ID); permissions are enforced where the record lives
@@ -106,6 +110,8 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 
 ## 7. How the RedSky API reads Twenty as the signed-in user
 
+**Resolved (2026-10-21) by decision 16:** Twenty's OAuth authorization server.
+
 **Open.** Decision 2 needs the RedSky API to call Twenty with a token for the signed-in user instead of a shared key. Both sign in through Entra ID, but they hold separate sessions. Options to evaluate against Twenty 2.44: an OAuth flow in which Twenty issues RedSky a token per user, or exchanging the user's Entra token for a Twenty token. Until this is decided, the shared key stays read-only and limited to a pre-production Twenty.
 
 ## 8. Document OCR as a private RedSky service (`redsky-ocr`)
@@ -130,7 +136,7 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 **Why.** One place to work; no switching between two products that look different and are both called "RedSky".
 
 **Consequences:**
-- **Staff stay Twenty workspace members.** They don't work in Twenty's screens, but Twenty's permissions apply to them through RedSky (decision 2), so each person needs a workspace member. Whether Twenty's Entra app is also limited to administrators depends on decision 7: an OAuth flow needs each person to sign in to Twenty once; a token exchange doesn't.
+- **Staff stay Twenty workspace members.** They don't work in Twenty's screens, but Twenty's permissions apply to them through RedSky (decision 2), so each person needs a workspace member. Whether Twenty's Entra app is also limited to administrators depends on decision 7: an OAuth flow needs each person to sign in to Twenty once; a token exchange doesn't. Decision 16 chose OAuth, so Twenty's sign-in stays open to staff.
 - **Links and emails open RedSky.** Turn off Twenty's user-facing emails, except those administrators need.
 - **Rename Twenty's branding** from "RedSky" to an admin name such as "RSM CRM Admin". This is a code change in `redsky-twenty`, still to do.
 - **RedSky must cover the daily work** before staff get the CRM (decision 10): writing, editable record pages with timelines, connecting mailboxes. Deals are built in RedSky as the next area to move (decision 1). The roadmap is in [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md).
@@ -179,3 +185,38 @@ Decisions 9 to 14 were first recorded on 2026-10-20 as 1 to 8 in a separate draf
 - adding connector syncs, which get a sync worker ([`ARCHITECTURE.md`](ARCHITECTURE.md), Services).
 
 Any of these gets its own `redsky-*` service, never Twenty's, and no queue is shared between services (decision 4).
+
+## 15. Twenty is RedSky's CRM back end, deals included
+
+**Decision.** The `redsky-twenty` deployment owns RSM's CRM records (people, organizations, affiliations, interactions, introductions and deals), and RedSky is the only application staff use for them (decision 9). Deals are built as `rsm-core`'s `deal` object in Twenty, not in RedSky. Supersedes the order of areas in decision 1.
+
+**Why:**
+- **A clean start.** Twenty holds no real data and no one uses it yet, so it can start as the baseline CRM.
+- **What Twenty already provides:** a data model RSM has designed for (`redsky-twenty` `RSM_ARCHITECTURE.md` §6), APIs, Microsoft 365 email and calendar sync, and an admin back office.
+- **Per-person access is possible without changing Twenty** (decision 16).
+
+**Consequences:**
+- **Real data waits on two things:** the Enterprise-free Twenty build (`redsky-twenty` decision 1), and RSM's replacement for Twenty's Enterprise record sharing (deal walls, `ENTERPRISE_COMPONENTS.md` §5.1). Until then Twenty holds test data only.
+- **RedSky uses only Twenty's API, webhooks and SDKs; it never copies Twenty's source.** Twenty's licence lets an application that only talks to those interfaces keep its own licence (the "Twenty Application Exception" in Twenty's `LICENSE`); copying Twenty's AGPL code into `redsky-core` would lose that. Twenty's MIT packages (`twenty-client-sdk`, `twenty-shared`) may be used, keeping their notices.
+- **Twenty → RedSky is notification, not data.** Twenty's webhooks are delivered at most once (no retries), so RedSky uses them to refresh and notify, with a periodic catch-up, and keeps no copy of CRM records (decision 1).
+- **Staff touch Twenty once, at setup:** to approve RedSky (decision 16) and to connect their Outlook mailbox, which Twenty only lets a person start from their own Twenty session.
+- **Moving areas out of Twenty stays possible** through the steps in decision 1. Every Twenty-specific investment makes a move bigger.
+
+## 16. RedSky reads and writes Twenty as each person through Twenty's OAuth
+
+**Decision.** RedSky is registered in Twenty as a confidential OAuth client. Each person approves RedSky once on Twenty's consent page; RedSky then calls Twenty's API with that person's own token (authorization code with PKCE and client secret; access tokens last 30 minutes, refresh tokens 60 days from last use). Resolves decision 7.
+
+**Why.**
+- **It is the only built-in way** for an external application to act as a person in Twenty. Tokens carry the person and the application, Twenty applies the person's role on every request, and records the person as author (`createdBy`, timeline, audit).
+- **It needs no change to Twenty, and no Enterprise code.** Exchanging the person's Microsoft sign-in token for a Twenty token, the alternative, does not exist in Twenty and would be security-critical custom code in its core.
+
+**Consequences:**
+- **One approval per person.** Each person signs in to Twenty with Microsoft, plus Twenty's own two-factor code while RSM enforces it, and approves RedSky. They approve again only if RedSky goes unused for 60 days, or the approval is revoked.
+- **Tokens.** RedSky stores them encrypted with `REDSKY_ENCRYPTION_KEY`, bound to the person (`crm_connections`). Disconnecting revokes the grant in Twenty and deletes them. Twenty's refresh tokens are not single-use, so a leaked one stays valid until revoked: they never leave RedSky's server.
+- **No shared key alongside OAuth.** With OAuth configured, `TWENTY_API_KEY` is ignored; someone who has not connected is asked to connect.
+- **Writing becomes possible** (roadmap step 2), because changes are attributed to the person who made them.
+
+**Open:**
+1. Whether to keep Twenty's own two-factor code or rely on Microsoft's MFA, which already guards the Microsoft sign-in to Twenty.
+2. Whether signing in from Twenty's consent page returns the person to it. This is to be checked in the staging trial; the code suggests it does.
+3. Twenty's open OAuth client registration (`/oauth/register`) is unauthenticated and only rate-limited. Close it if Claude or MCP clients don't need it.

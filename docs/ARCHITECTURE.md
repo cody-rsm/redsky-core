@@ -4,7 +4,7 @@ This page has two parts. [Platform structure](#platform-structure) is the shape 
 
 ## Platform structure
 
-RedSky is RSM Capital's internal operating system. Twenty CRM is one system connected to it, and RedSky replaces it one area at a time.
+RedSky is RSM Capital's internal operating system. Twenty CRM is connected to it as the CRM back end, deals included (decision 15); staff reach it only through RedSky.
 
 ### Repositories
 
@@ -22,7 +22,7 @@ New platform code goes in `redsky-core`. `redsky-twenty` gets only what must liv
 | 1. UX | Home, CRM, Deals, Portfolio, Diligence, Documents, Intelligence, AI Assistant, Admin | `redsky-web` client (`src/app`, `src/components`). The only application staff use (decision 9); CRM records are read-only in it until the write path ([`CRM_INTEGRATION.md`](CRM_INTEGRATION.md)) |
 | 2. Identity & API gateway | Auth, SSO, permissions, API routing, audit logs, rate limits | `redsky-web` server: `src/server/auth`, `security`, `http`. Entra ID |
 | 3. Application services | Companies & People, Deal Pipeline, Portfolio, Diligence, Relationship Intelligence, Government Affairs, Tasks & Approvals, Reporting | `src/server/services` for RedSky-owned data; CRM records in Twenty, read through the Twenty adapter |
-| 4. Integration hub | Connector SDK, credentials, OAuth, webhooks, sync workers, data mapping; Harmonic, PitchBook, AlphaSense, Carta, LegiStorm, Microsoft 365, Gödel Terminal, others | `src/server/integrations` (the Twenty adapter today). One adapter per source behind a normalized interface |
+| 4. Integration hub | Connector SDK, credentials, OAuth, webhooks, sync workers, data mapping; Harmonic, PitchBook, AlphaSense, Carta, LegiStorm, Microsoft 365, Gödel Terminal, others | `src/server/integrations` (the Twenty adapter and its per-person OAuth today). One adapter per source behind a normalized interface |
 | 5. AI & intelligence | Anthropic, typed decision layer, agents and tool calling, MCP server, RAG and semantic search, entity resolution | `src/server/ai`. Retrieval over `redsky-ocr` chunks and pgvector is planned |
 | 6. Document & OCR | Upload, OCR, text and table extraction, classification, metadata extraction, search indexing | `services/ocr` (`redsky-ocr`) |
 | 7. Automation | Queues, scheduled jobs, event bus, approvals | Inside each service (`redsky-ocr` queues in Postgres). Between services: HTTP and signed events only |
@@ -42,7 +42,7 @@ flowchart LR
   OCR -->|"signed events"| WEB
   OCR --> OPG[("redsky-postgres<br/>database redsky_ocr")]
   OCR -->|"read"| DOCS
-  WEB -->|"REST / GraphQL<br/>as the user (decision 7)"| TW["twenty-server<br/>twenty-worker"]
+  WEB -->|"REST / GraphQL<br/>as each person (OAuth, decision 16)"| TW["twenty-server<br/>twenty-worker"]
   OCR -->|"attachments"| TW
   TW --> TPG[("Postgres")]
   TW --> R[("Redis")]
@@ -64,7 +64,7 @@ Railway settings for each service are in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 These four are decided ([`DECISIONS.md`](DECISIONS.md) 1 to 4). Changing one needs a new decision, not a quiet exception.
 
-1. **One owner per record type.** Twenty owns CRM records today; RedSky owns its workspace data and documents. Areas move to RedSky one at a time (Documents first, then Deals), and each move changes the owner instead of adding a second one. Never sync records two ways between RedSky and Twenty. Twenty is retired when the last area has moved.
+1. **One owner per record type.** Twenty owns CRM records, deals included (decision 15); RedSky owns its workspace data and documents. An area can move to RedSky later, and a move changes the owner instead of adding a second one. Never sync records two ways between RedSky and Twenty.
 2. **One sign-in, permissions where the record lives.** Entra ID signs people in to both systems. When the RedSky API reads Twenty, it acts as the signed-in user, so Twenty's permissions and deal walls apply. RedSky's own records are authorized in `src/server/security/access-policy.ts`. Never use an all-access Twenty key while re-implementing Twenty's permissions in RedSky.
 3. **Documents in RedSky storage.** Uploads go to the `redsky-documents` bucket; SharePoint stays the home of deal-system files and is reached as a source. Extracted text, chunks and embeddings stay in Postgres; only large outputs go in the bucket.
 4. **HTTP contracts, no shared queues.** Services expose versioned HTTP APIs and send signed events to the RedSky API. No Redis or BullMQ queue is shared between the TypeScript API and Python services. Services are private; the frontend calls only the RedSky API. Each service owns its database or schema, and nothing reads Twenty's database.
@@ -101,7 +101,7 @@ API, events, security and limits: [`services/ocr/README.md`](../services/ocr/REA
 
 ### Known gaps
 
-- **The Twenty adapter uses a shared API key** (`TWENTY_API_KEY`), so every RedSky user sees what that key's role sees. This conflicts with rule 2. It is acceptable only while Twenty holds no real client data, and is replaced by per-user access ([decision 7](DECISIONS.md#7-how-the-redsky-api-reads-twenty-as-the-signed-in-user)).
+- **Per-person Twenty access is built but not yet tried against the staging Twenty** ([decision 16](DECISIONS.md#16-redsky-reads-and-writes-twenty-as-each-person-through-twentys-oauth), [`DEPLOYMENT.md`](DEPLOYMENT.md) §10). Without the OAuth settings, the adapter falls back to the stopgap shared key (`TWENTY_API_KEY`), which conflicts with rule 2 and is only for pre-production data.
 - **Document sharing is "Only me" or "All RSM staff".** Team and deal-team visibility waits for team membership, which RedSky does not have yet (`Actor.teamIds`).
 - **Twenty attachments are read by `redsky-ocr` but not listed in Documents**, and SharePoint is not a source yet. Listing them needs a per-user check against Twenty (rule 2), so the Twenty source stays off until per-user access exists ([`DEPLOYMENT.md`](DEPLOYMENT.md) §13).
 - **Search shares the tenant with Twenty attachments.** `redsky-ocr` returns up to 50 hits across the tenant and `redsky-web` keeps only documents the user may see. With the Twenty source on, attachment hits could crowd out RedSky documents; add a source filter to `/api/v1/search` before turning it on.
@@ -212,6 +212,11 @@ The UI never sees Twenty shapes. `server/integrations/crm/types.ts` defines `Crm
 - uses Bearer API-key auth, cursor pagination and an 8-second timeout;
 - has a typed `CrmError`.
 
-It is read-only in this release, and inactive unless `TWENTY_API_URL` and `TWENTY_API_KEY` are set. The shared key is a known gap against rule 2 (see [Known gaps](#known-gaps)): replace it with per-user access before Twenty holds real data, and keep the normalized types, so the adapter can be swapped for RedSky's own services as areas move.
+It is read-only in this release. `crmAccessFor(userId)` in `server/integrations/crm/index.ts` gives each caller the adapter as that person:
+
+- **Per person (decision 16).** With `TWENTY_PUBLIC_URL` and the OAuth client set, the adapter carries the person's own Twenty token from `twenty-oauth.ts`. That module handles the connect and callback routes (`/api/integrations/twenty/*`), PKCE, `state` and issuer checks, encrypted storage in `crm_connections`, refresh, and revocation on disconnect. Someone who hasn't connected gets `connect_required`, never another credential.
+- **Shared key (stopgap).** Without OAuth, `TWENTY_API_URL` and `TWENTY_API_KEY` give everyone one read-only key's view; see [Known gaps](#known-gaps).
+
+The normalized types stay, so the adapter could be swapped for RedSky's own services if an area moves.
 
 Planned writes (roadmap step 2) come with per-user access: `CrmAdapter` gains create and update methods that call Twenty with the signed-in user's token. Each write is a structured action executed by `services/confirm-service.ts` after the confirmation dialog, with duplicate checks and an audit entry, like AI-proposed actions today; Twenty authorizes it. RedSky keeps no copy of CRM records.

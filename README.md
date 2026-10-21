@@ -12,8 +12,8 @@ This repository is `cody-rsm/redsky-core` (formerly `cody-rsm/RedSky`). It holds
 
 RedSky is built as nine layers, from UX down to hosting, with Twenty CRM beside them as a replaceable connected system that RedSky takes over one area at a time. Four rules hold it together ([`docs/DECISIONS.md`](docs/DECISIONS.md) 1 to 4):
 
-1. **One owner per record type.** Twenty owns CRM records today; RedSky owns its workspace data and documents. Areas move to RedSky one at a time, Documents first, and never sync two ways.
-2. **One sign-in, permissions where the record lives.** Entra ID for both systems. The RedSky API reads Twenty as the signed-in user, so Twenty's permissions and deal walls apply. No all-access key with Twenty's permissions re-implemented in RedSky (today's shared read-only key is a known gap).
+1. **One owner per record type.** Twenty owns CRM records, deals included; RedSky owns its workspace data and documents. Never sync two ways.
+2. **One sign-in, permissions where the record lives.** Entra ID for both systems. The RedSky API reads and writes Twenty as each signed-in person through Twenty's OAuth, so Twenty's permissions and deal walls apply. No all-access key with Twenty's permissions re-implemented in RedSky.
 3. **Documents in RedSky storage.** Uploads go to RedSky's own bucket; SharePoint stays the deal-system home. Extracted text and embeddings stay in Postgres.
 4. **HTTP contracts, no shared queues.** Services such as `redsky-ocr` expose versioned HTTP APIs and send signed events to the RedSky API. They are private; the frontend calls only the RedSky API.
 
@@ -36,7 +36,7 @@ The approved Claude Design prototype in [`prototype/`](prototype/) is the source
 | Home | Daily Brief and 12 more widgets, 5 tabs, customization (drag, keyboard move, resize, hide, widget library, density, opens-to), all saved per employee. |
 | Workspace | Command palette, RedSky AI panel, meeting prep and record drawers, quick create, notifications, Settings (7 tabs), People, Pipeline and roadmap module pages, light/dark themes. |
 | AI | Anthropic provider when configured, otherwise "not configured". Demo mode uses the prototype's simulated answers, labelled as simulated. Proposed actions run only after explicit confirmation and server-side authorization. |
-| CRM | Read-only Twenty adapter with normalized models. Inactive until `TWENTY_API_URL` and `TWENTY_API_KEY` are set. Per-user access, writing, editable record pages, mailbox connection and deals in RedSky are the next roadmap steps ([`docs/CRM_INTEGRATION.md`](docs/CRM_INTEGRATION.md)). |
+| CRM | Read-only Twenty adapter with normalized models, used as each person: they connect once through Twenty's OAuth (People or Settings › Connected apps), and RedSky reads Twenty with their own token. Inactive until the OAuth settings are configured ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §10). Writing, editable record pages, mailbox setup and deals are the next roadmap steps ([`docs/CRM_INTEGRATION.md`](docs/CRM_INTEGRATION.md)). |
 | Documents | Upload PDFs, scans, photos and Office files; RedSky stores them in its own bucket and reads them with `redsky-ocr` ([`services/ocr`](services/ocr/)). Status, extracted text and tables, full-text search, download, delete, and sharing as "Only me" or "All RSM staff". Inactive (and says so) until the bucket and `redsky-ocr` are configured; neither is deployed yet. |
 
 ### Data modes

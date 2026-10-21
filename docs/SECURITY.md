@@ -70,9 +70,12 @@
 
 RedSky uses its own PostgreSQL service and the `redsky` schema. The migration runner refuses any database containing Twenty's schemas or another application's tables, and it serializes concurrent deploys with an advisory lock. RedSky never queries Twenty's database; CRM data comes only through the authenticated REST adapter.
 
-Permissions are enforced where the record lives ([`DECISIONS.md`](DECISIONS.md) 2): for CRM records, that is Twenty. The target is for RedSky to call Twenty as the signed-in user (decision 7, open), so Twenty's roles and deal walls apply and Twenty credits each change to the person who made it. Until then, the read-only adapter uses one API key ([`CRM_INTEGRATION.md`](CRM_INTEGRATION.md), "Reading and writing as the user"):
-- **Visibility.** The key's role decides what every RedSky user sees. Give it a dedicated read-only role, and connect it only to pre-production data.
-- **No writes.** RedSky doesn't write to Twenty with a shared key; writing waits for per-user access.
+Permissions are enforced where the record lives ([`DECISIONS.md`](DECISIONS.md) 2): for CRM records, that is Twenty. RedSky calls Twenty as each signed-in person through Twenty's OAuth (decision 16), so Twenty's roles and deal walls apply and Twenty credits each change to the person who made it.
+- **The flow.** Authorization code with PKCE (S256), a client secret sent in the request body, a `state` check, and Twenty's issuer checked on return. The connection attempt is bound to the RedSky user who started it, in an encrypted, short-lived cookie scoped to `/api/integrations/twenty`, so a code can't be attached to someone else's account.
+- **Tokens.** Access and refresh tokens are encrypted with `REDSKY_ENCRYPTION_KEY` (AES-256-GCM), bound to the person and provider, in `crm_connections`. They are never sent to the browser or logged. Twenty's refresh tokens are not single-use, so disconnecting revokes the grant in Twenty before deleting them. A grant Twenty no longer honours is deleted, and the person must connect again.
+- **No fallback.** With OAuth configured, the shared `TWENTY_API_KEY` is ignored.
+- **Audit.** `crm.connected`, `crm.disconnected`, `crm.connection_expired` and `crm.connect_failed`, with ids only.
+- **Stopgap shared key.** Without OAuth, one read-only API key decides what every RedSky user sees. Use it only with pre-production data.
 
 ## Secrets
 
