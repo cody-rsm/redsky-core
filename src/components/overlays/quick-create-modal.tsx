@@ -52,6 +52,7 @@ export function QuickCreateModal() {
 function CreateForm({ type, prefill, onClose }: { type: CreateType; prefill: CreatePrefill; onClose: () => void }) {
   const viewer = useViewer();
   const definition = CREATE_DEFINITIONS[type];
+  const { choice } = definition;
   const demo = viewer.config.dataMode === 'demo';
   const unavailable = !definition.native && !demo ? UNAVAILABLE_NOTE[type] : undefined;
   const { toast, askAi } = useUiStore.getState();
@@ -59,7 +60,7 @@ function CreateForm({ type, prefill, onClose }: { type: CreateType; prefill: Cre
   const [serverError, setServerError] = useState<string | null>(null);
   const { register, handleSubmit, control, setValue, formState } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { title: prefill.title, related: prefill.related, extra: prefill.extra || definition.extraOptions[0] || '', notes: prefill.notes },
+    defaultValues: { title: prefill.title, related: prefill.related, extra: prefill.extra || choice?.options[0] || '', notes: prefill.notes },
   });
 
   async function onSubmit(values: FormValues) {
@@ -74,7 +75,7 @@ function CreateForm({ type, prefill, onClose }: { type: CreateType; prefill: Cre
         void askAi(`Start research on ${values.title}`, demo ? { key: /halcyon/i.test(values.title) ? 'company' : 'research', ref: values.title } : {});
         return;
       } else {
-        const result = await apiFetch<{ message: string }>('/api/quick-create', { method: 'POST', body: { type, title: values.title, related: values.related || undefined, extra: values.extra } });
+        const result = await apiFetch<{ message: string }>('/api/quick-create', { method: 'POST', body: { type, title: values.title, related: values.related || undefined, extra: values.extra || undefined } });
         toast(result.message);
       }
       onClose();
@@ -130,16 +131,18 @@ function CreateForm({ type, prefill, onClose }: { type: CreateType; prefill: Cre
             <input id="c-rel" className="input" placeholder="Optional" {...register('related')} />
           )}
         </div>
-        <div className="field">
-          <span className="flabel" id="c-extra-l">
-            {definition.extraLabel}
-          </span>
-          <Controller
-            control={control}
-            name="extra"
-            render={({ field }) => <Segmented label={definition.extraLabel} options={definition.extraOptions.map((option) => ({ value: option, label: option }))} value={field.value} onChange={field.onChange} style={{ alignSelf: 'flex-start' }} />}
-          />
-        </div>
+        {choice ? (
+          <div className="field">
+            <span className="flabel" id="c-extra-l">
+              {choice.label}
+            </span>
+            <Controller
+              control={control}
+              name="extra"
+              render={({ field }) => <Segmented label={choice.label} options={choice.options.map((option) => ({ value: option, label: option }))} value={field.value} onChange={field.onChange} style={{ alignSelf: 'flex-start' }} />}
+            />
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="c-notes">Notes</label>
           <textarea id="c-notes" className="input" rows={3} placeholder="Optional context for colleagues" {...register('notes')} />

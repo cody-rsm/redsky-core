@@ -9,8 +9,7 @@ export type CreateDefinition = {
   fieldLabel: string;
   placeholder: string;
   relLabel: string;
-  extraLabel: string;
-  extraOptions: ReadonlyArray<string>;
+  choice?: { label: string; options: ReadonlyArray<string> };
   note: string;
   saveLabel: string;
   // RedSky-native creates persist in RedSky. The others write to systems that are not connected yet, so in
@@ -21,12 +20,12 @@ export type CreateDefinition = {
 export const PIPELINE_STAGES = ['Sourcing', 'Initial Review', 'Due Diligence', 'Investment Committee', 'Negotiation', 'Closed / Portfolio'] as const;
 
 export const CREATE_DEFINITIONS: Record<CreateType, CreateDefinition> = {
-  task: { title: 'Create task', icon: 'tasks', fieldLabel: 'Task', placeholder: 'What needs to happen?', relLabel: 'Related to', extraLabel: 'Due', extraOptions: ['Today', 'Tomorrow', 'This week', 'Next week'], note: 'Tasks you create are assigned to you and appear in My Tasks.', saveLabel: 'Create task', native: true },
-  contact: { title: 'Add contact', icon: 'user', fieldLabel: 'Full name', placeholder: 'e.g. Jordan Alvarez', relLabel: 'Organization', extraLabel: 'Relationship owner', extraOptions: ['Me', 'Tom Becker', 'Marcus Chen', 'Eleanor Vance'], note: 'RedSky checks for duplicates and routes new contacts for review before they are added.', saveLabel: 'Submit for review', native: false },
-  meeting: { title: 'Log meeting', icon: 'calendar', fieldLabel: 'Meeting', placeholder: 'e.g. Coffee with Elena Sorensen', relLabel: 'Related to', extraLabel: 'When', extraOptions: ['Today', 'Yesterday', 'Earlier this week'], note: 'If a public official attended, this log supports disclosure review.', saveLabel: 'Log meeting', native: false },
-  opportunity: { title: 'Add opportunity', icon: 'pipeline', fieldLabel: 'Company', placeholder: 'Company name', relLabel: 'Source / introduced via', extraLabel: 'Stage', extraOptions: PIPELINE_STAGES.slice(0, 3), note: 'New opportunities start in Sourcing unless a stage is chosen. Sample only.', saveLabel: 'Add opportunity', native: false },
-  document: { title: 'Upload document', icon: 'upload', fieldLabel: 'Document name', placeholder: 'e.g. Site visit notes', relLabel: 'Link to', extraLabel: 'Visibility', extraOptions: ['Only me', 'Deal or project team', 'All RSM staff'], note: 'Uploads in this prototype are simulated — files stay on your device.', saveLabel: 'Upload', native: false },
-  research: { title: 'Start research', icon: 'flask', fieldLabel: 'Company, person or topic', placeholder: 'e.g. Halcyon Robotics', relLabel: 'Related to', extraLabel: 'Depth', extraOptions: ['Quick scan', 'Standard brief', 'Deep dive'], note: 'RedSky AI compiles internal records first, then approved external sources.', saveLabel: 'Start research', native: true },
+  task: { title: 'Create task', icon: 'tasks', fieldLabel: 'Task', placeholder: 'What needs to happen?', relLabel: 'Related to', choice: { label: 'Due', options: ['Today', 'Tomorrow', 'This week', 'Next week'] }, note: 'Tasks you create are assigned to you and appear in My Tasks.', saveLabel: 'Create task', native: true },
+  contact: { title: 'Add contact', icon: 'user', fieldLabel: 'Full name', placeholder: 'e.g. Jordan Alvarez', relLabel: 'Organization', note: 'RedSky checks for duplicates and routes new contacts for review before they are added.', saveLabel: 'Submit for review', native: false },
+  meeting: { title: 'Log meeting', icon: 'calendar', fieldLabel: 'Meeting', placeholder: 'e.g. Coffee with Elena Sorensen', relLabel: 'Related to', choice: { label: 'When', options: ['Today', 'Yesterday', 'Earlier this week'] }, note: 'If a public official attended, this log supports disclosure review.', saveLabel: 'Log meeting', native: false },
+  opportunity: { title: 'Add opportunity', icon: 'pipeline', fieldLabel: 'Company', placeholder: 'Company name', relLabel: 'Source / introduced via', choice: { label: 'Stage', options: PIPELINE_STAGES.slice(0, 3) }, note: 'New opportunities start in Sourcing unless a stage is chosen. Sample only.', saveLabel: 'Add opportunity', native: false },
+  document: { title: 'Upload document', icon: 'upload', fieldLabel: 'Document name', placeholder: 'e.g. Site visit notes', relLabel: 'Link to', choice: { label: 'Visibility', options: ['Only me', 'Deal or project team', 'All RSM staff'] }, note: 'Uploads in this prototype are simulated — files stay on your device.', saveLabel: 'Upload', native: false },
+  research: { title: 'Start research', icon: 'flask', fieldLabel: 'Company, person or topic', placeholder: 'e.g. Halcyon Robotics', relLabel: 'Related to', choice: { label: 'Depth', options: ['Quick scan', 'Standard brief', 'Deep dive'] }, note: 'RedSky AI compiles internal records first, then approved external sources.', saveLabel: 'Start research', native: true },
 };
 
 export const QUICK_ACTIONS: ReadonlyArray<{ label: string; icon: IconName; type: CreateType }> = [
