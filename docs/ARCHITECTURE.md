@@ -212,7 +212,7 @@ The UI never sees Twenty shapes. `server/integrations/crm/types.ts` defines `Crm
 - uses Bearer API-key auth, cursor pagination and an 8-second timeout;
 - has a typed `CrmError`.
 
-It is read-only in this release. `crmAccessFor(userId)` in `server/integrations/crm/index.ts` gives each caller the adapter as that person:
+It reads and, as the person, writes (`services/crm-write-service.ts`: Add contact with review, Add note). `crmAccessFor(userId)` in `server/integrations/crm/index.ts` gives each caller the adapter as that person:
 
 - **Per person (decision 16).** With `TWENTY_PUBLIC_URL` and the OAuth client set, the adapter carries the person's own Twenty token from `twenty-oauth.ts`. That module handles the connect and callback routes (`/api/integrations/twenty/*`), PKCE, `state` and issuer checks, encrypted storage in `crm_connections`, refresh, and revocation on disconnect. Someone who hasn't connected gets `connect_required`, never another credential.
 - **Shared key (stopgap).** Without OAuth, `TWENTY_API_URL` and `TWENTY_API_KEY` give everyone one read-only key's view; see [Known gaps](#known-gaps).

@@ -272,6 +272,11 @@ TWENTY_OAUTH_CLIENT_SECRET=<clientSecret>
 3. You land back on **People**, showing the contacts your Twenty role allows. **⌘K** finds them too.
 4. **Check permissions.** A second person with a narrower Twenty role connects and sees only what that role allows.
 5. **Check disconnecting.** **Settings → Connected apps → Disconnect** revokes RedSky's access in Twenty. People then asks to connect again.
+6. **Check writing.**
+   - **+ New → Add contact:** enter a name, email and organization, then choose **Review**. RedSky lists possible duplicates and whether the organization exists, then saves on **Add to CRM**.
+   - **In Twenty:** the person and organization appear, created by you.
+   - **Add note** on that contact's preview: the note appears on the contact in Twenty.
+   - **Someone whose role can't create people** gets "Your CRM role doesn't allow adding contacts", and nothing is saved.
 
 **Not verified yet:** if you aren't signed in to Twenty when you choose Connect, Twenty may not return you to its consent page after sign-in. If you land on Twenty's home page instead, go back to RedSky and choose **Connect CRM** again.
 
@@ -422,7 +427,8 @@ Railway bills usage. At an idle footprint of about 150 MB and near-zero CPU, the
 | Railway-generated domain | Optional: remove once the custom domain is confirmed |
 | `ANTHROPIC_API_KEY` (RedSky AI) | **Requires credentials and approval**; AI shows "not configured" until then |
 | Per-person Twenty access (OAuth) | **Built, not yet tried on staging**: register RedSky and set the variables (step 10) |
-| CRM write path, record pages, mailbox connection | **Not built**: [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md) roadmap steps 2–4 |
+| CRM writes: Add contact (with review) and Add note | **Built, not yet tried on staging**; follows the per-person connection |
+| Logging interactions, record pages, mailbox connection | **Not built**: [`CRM_INTEGRATION.md`](CRM_INTEGRATION.md) roadmap steps 2–4 |
 | Outlook, Teams, SharePoint, LegiStorm, Harmonic, PitchBook, AlphaSense and other connectors | **Not implemented**: "Coming soon" with notify list |
 | `redsky-ocr` image build, tests, Twenty attachment path | **Verified locally** when built (Docker, and against a local Twenty 2.44) |
 | Documents page: upload, status, text and tables, search, download, delete, sharing | **Verified locally** when built, against `redsky-ocr` (Docker image), an S3-compatible stand-in and Postgres, in the browser and with the production build |

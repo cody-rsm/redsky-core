@@ -23,7 +23,7 @@ const DEMO_RELATED = ['Ridgeline Grid Storage', 'Halcyon Robotics', 'Atlas Trans
 
 const UNAVAILABLE_NOTE: Partial<Record<CreateType, string>> = {
   contact: 'Adding contacts needs the RSM CRM connection, which isn’t set up yet.',
-  meeting: 'Logging meetings needs the RSM CRM connection, which isn’t set up yet.',
+  meeting: 'Logging meetings arrives with RSM’s interaction records in the CRM, which aren’t installed yet. Until then, add a note to the contact.',
   opportunity: 'Adding opportunities needs the CRM deal model, planned for Phase 3.',
   document: 'Document storage isn’t set up yet. Your administrator connects it.',
 };
