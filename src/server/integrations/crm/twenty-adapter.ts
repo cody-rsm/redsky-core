@@ -120,7 +120,8 @@ export class TwentyCrmAdapter implements CrmAdapter {
 
   constructor(
     private readonly baseUrl: URL,
-    private readonly apiKey: string,
+    // A person's OAuth access token, or the stopgap shared API key; Twenty takes both as a bearer token.
+    private readonly credential: string,
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
 
@@ -130,7 +131,7 @@ export class TwentyCrmAdapter implements CrmAdapter {
     let response: Response;
     try {
       response = await this.fetchImpl(url, {
-        headers: { Authorization: `Bearer ${this.apiKey}`, Accept: 'application/json' },
+        headers: { Authorization: `Bearer ${this.credential}`, Accept: 'application/json' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
         cache: 'no-store',
       });

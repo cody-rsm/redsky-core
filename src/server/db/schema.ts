@@ -121,6 +121,22 @@ export const integrationRequests = redsky.table(
   (table) => [primaryKey({ columns: [table.userId, table.connectorId] })],
 );
 
+// A person's authorization for RedSky to use the CRM as them (Twenty OAuth). Deleting the row disconnects them.
+// Tokens are encrypted with REDSKY_ENCRYPTION_KEY and bound to the row's user and provider.
+export const crmConnections = redsky.table(
+  'crm_connections',
+  {
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider', { enum: ['twenty'] }).notNull(),
+    refreshTokenCiphertext: text('refresh_token_ciphertext').notNull(),
+    accessTokenCiphertext: text('access_token_ciphertext').notNull(),
+    accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.provider] })],
+);
+
 export type WorkstyleSharing = { manager: boolean; colleagues: boolean };
 export type WorkstyleExtractionMeta = {
   status: 'extracted' | 'partial' | 'unrecognized' | 'unreadable' | 'manual' | 'sample';

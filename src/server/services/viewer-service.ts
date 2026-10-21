@@ -9,11 +9,12 @@ import type { ProfileView, ViewerPayload, WorkstyleSummary } from '@/lib/api/con
 import type { SessionUser } from '@/server/auth/session';
 import { getConfig, getPublicConfig } from '@/server/config/env';
 import { getDb } from '@/server/db/client';
+import { crmConnectionState } from '@/server/integrations/crm';
 import { dashboardLayouts, employeeProfiles, integrationRequests, onboardingProgress, userPreferences, workstyleAssessments } from '@/server/db/schema';
 
 export async function loadViewer(user: SessionUser): Promise<ViewerPayload> {
   const db = getDb();
-  const [profileRows, prefRows, layoutRows, progressRows, integrationRows, workstyleRows] = await Promise.all([
+  const [profileRows, prefRows, layoutRows, progressRows, integrationRows, workstyleRows, crm] = await Promise.all([
     db.select().from(employeeProfiles).where(eq(employeeProfiles.userId, user.id)).limit(1),
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.id)).limit(1),
     db.select().from(dashboardLayouts).where(eq(dashboardLayouts.userId, user.id)).limit(1),
@@ -28,6 +29,7 @@ export async function loadViewer(user: SessionUser): Promise<ViewerPayload> {
       .from(workstyleAssessments)
       .where(eq(workstyleAssessments.userId, user.id))
       .limit(1),
+    crmConnectionState(user.id),
   ]);
   const profile = profileRows[0];
   const progress = progressRows[0];
@@ -75,6 +77,7 @@ export async function loadViewer(user: SessionUser): Promise<ViewerPayload> {
     integrations,
     workstyle: workstyleSummary,
     config: getPublicConfig(),
+    crm,
     demo:
       config.dataMode === 'demo'
         ? {

@@ -37,6 +37,9 @@ const rawSchema = z.object({
   AI_EFFORT: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
   TWENTY_API_URL: optionalString,
   TWENTY_API_KEY: optionalString,
+  TWENTY_PUBLIC_URL: optionalString,
+  TWENTY_OAUTH_CLIENT_ID: optionalString,
+  TWENTY_OAUTH_CLIENT_SECRET: optionalString,
   REDSKY_TENANT_ID: z.string().trim().regex(/^[A-Za-z0-9._:@-]{1,128}$/).default('rsm'),
   DOCUMENTS_BUCKET: optionalString,
   DOCUMENTS_S3_ENDPOINT: optionalString,
@@ -74,7 +77,7 @@ export type AppConfig = {
   };
   encryptionKey: Buffer | null;
   ai: { provider: 'anthropic' | 'none'; apiKey: string | null; model: string; effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
-  crm: { provider: 'twenty' | 'none'; baseUrl: URL | null; apiKey: string | null };
+  crm: CrmConfig;
   workstyle: { retainOriginal: boolean };
   documents: DocumentsConfig;
 };
@@ -94,6 +97,19 @@ export type DocumentsConfig = {
   issues: string[];
 };
 
+export type CrmConfig = {
+  provider: 'twenty' | 'none';
+  // per_user: each person's own Twenty OAuth token, so Twenty's permissions apply to them (decision 2).
+  // shared_key: one read-only API key, a stopgap for pre-production data only. When OAuth is configured the key is
+  // ignored, so nobody silently falls back to it.
+  access: 'per_user' | 'shared_key' | 'none';
+  baseUrl: URL | null;
+  apiKey: string | null;
+  // `issuer` is Twenty's SERVER_URL: Twenty only accepts an issuer it publishes, and returns it on the callback.
+  oauth: { issuer: string; clientId: string; clientSecret: string } | null;
+  issues: string[];
+};
+
 const MIN_SECRET_LENGTH = 32;
 
 let cached: AppConfig | null = null;
@@ -103,6 +119,7 @@ export function getConfig(): AppConfig {
     cached = parseConfig(process.env);
     // Issues name variables only, never their values, so they are safe to log for deploy diagnostics.
     if (cached.auth.issues.length > 0) logger.warn('Configuration incomplete', { authMode: cached.auth.mode, issues: cached.auth.issues });
+    if (cached.crm.issues.length > 0) logger.warn('CRM configuration incomplete', { access: cached.crm.access, issues: cached.crm.issues });
   }
   return cached;
 }
@@ -142,7 +159,7 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
   }
 
   const encryptionKey = parseEncryptionKey(env.REDSKY_ENCRYPTION_KEY, isProduction, issues);
-  const crmUrl = parseUrl(env.TWENTY_API_URL, 'TWENTY_API_URL', issues);
+  const crm = parseCrm(env, isProduction, encryptionKey !== null);
   const documents = parseDocuments(env, isProduction);
 
   return {
@@ -161,10 +178,34 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
       model: env.AI_MODEL,
       effort: env.AI_EFFORT,
     },
-    crm: { provider: crmUrl && env.TWENTY_API_KEY ? 'twenty' : 'none', baseUrl: crmUrl, apiKey: env.TWENTY_API_KEY ?? null },
+    crm,
     workstyle: { retainOriginal: env.WORKSTYLE_RETAIN_ORIGINAL },
     documents,
   };
+}
+
+function parseCrm(env: z.infer<typeof rawSchema>, isProduction: boolean, canStoreTokens: boolean): CrmConfig {
+  const issues: string[] = [];
+  const publicUrl = parseUrl(env.TWENTY_PUBLIC_URL, 'TWENTY_PUBLIC_URL', issues);
+  const baseUrl = parseUrl(env.TWENTY_API_URL, 'TWENTY_API_URL', issues) ?? publicUrl;
+
+  let oauth: CrmConfig['oauth'] = null;
+  const oauthNames = ['TWENTY_PUBLIC_URL', 'TWENTY_OAUTH_CLIENT_ID', 'TWENTY_OAUTH_CLIENT_SECRET'] as const;
+  const missing = oauthNames.filter((name) => !env[name]);
+  if (missing.length > 0 && missing.length < oauthNames.length) {
+    issues.push(`Twenty OAuth needs ${missing.join(' and ')}`);
+  } else if (publicUrl && env.TWENTY_OAUTH_CLIENT_ID && env.TWENTY_OAUTH_CLIENT_SECRET) {
+    if (isProduction && publicUrl.protocol !== 'https:' && !isLoopback(publicUrl)) issues.push('TWENTY_PUBLIC_URL must use https in production');
+    else if (!canStoreTokens) issues.push('Twenty OAuth needs REDSKY_ENCRYPTION_KEY to store tokens');
+    else oauth = { issuer: publicUrl.href.replace(/\/$/, ''), clientId: env.TWENTY_OAUTH_CLIENT_ID, clientSecret: env.TWENTY_OAUTH_CLIENT_SECRET };
+  }
+
+  let access: CrmConfig['access'] = 'none';
+  if (oauth && baseUrl) access = 'per_user';
+  else if (baseUrl && env.TWENTY_API_KEY) access = 'shared_key';
+  if (access === 'per_user' && env.TWENTY_API_KEY) issues.push('TWENTY_API_KEY is ignored: RedSky uses each person’s Twenty connection');
+
+  return { provider: access === 'none' ? 'none' : 'twenty', access, baseUrl, apiKey: access === 'shared_key' ? (env.TWENTY_API_KEY ?? null) : null, oauth, issues };
 }
 
 function parseDocuments(env: z.infer<typeof rawSchema>, isProduction: boolean): DocumentsConfig {
@@ -237,6 +278,7 @@ export type PublicConfig = {
   aiAvailable: boolean;
   aiSimulated: boolean;
   crmConnected: boolean;
+  crmAccess: CrmConfig['access'];
   workstyleStorageAvailable: boolean;
   documentsAvailable: boolean;
   timeZone: string;
@@ -250,6 +292,7 @@ export function getPublicConfig(): PublicConfig {
     aiAvailable: config.dataMode === 'demo' || config.ai.provider === 'anthropic',
     aiSimulated: config.dataMode === 'demo',
     crmConnected: config.crm.provider === 'twenty',
+    crmAccess: config.crm.access,
     workstyleStorageAvailable: config.encryptionKey !== null,
     documentsAvailable: config.documents.available,
     timeZone: config.timeZone,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { ConnectorLogo } from '@/components/common/connector-logo';
 import { Chip, type ChipTone } from '@/components/ui/chip';
@@ -9,8 +10,10 @@ import { Switch } from '@/components/ui/switch';
 import { CONNECTOR_STATE_VIEW, CONNECTORS } from '@/features/integrations/catalog';
 import { AI_STYLES, DENSITIES, LANDINGS, type Density, type LandingId } from '@/features/personalization/catalog';
 import { DIGEST_TIMES, type NotifMode, type SidebarMode, type Theme } from '@/features/preferences/schema';
+import { apiFetch, errorMessage } from '@/lib/client/api';
 import { useConnectorActions } from '@/lib/client/integrations';
 import { useLayoutActions } from '@/lib/client/layout-actions';
+import { queryKeys } from '@/lib/client/query-client';
 import { useUiStore } from '@/lib/client/ui-store';
 import { useUpdatePreferences, useViewer } from '@/lib/client/viewer';
 
@@ -268,15 +271,57 @@ export function NotificationsTab() {
 
 const CHIP_TONE: Record<string, ChipTone> = { ok: 'ok', outline: 'outline', warn: 'warn', neutral: 'neutral' };
 
+function CrmConnectionRow() {
+  const viewer = useViewer();
+  const queryClient = useQueryClient();
+  const toast = useUiStore((state) => state.toast);
+  const disconnect = useMutation({
+    mutationFn: () => apiFetch('/api/integrations/twenty/disconnect', { method: 'POST' }),
+    onSuccess: async () => {
+      await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.viewer }), queryClient.invalidateQueries({ queryKey: queryKeys.people })]);
+      toast('Disconnected from the RSM CRM');
+    },
+    onError: (error) => toast(errorMessage(error)),
+  });
+  const connected = viewer.crm === 'connected';
+  return (
+    <div className="setrow" style={{ gap: 12 }}>
+      <span className="lt lt-0" aria-hidden="true">
+        CR
+      </span>
+      <div className="grow">
+        <div style={{ fontWeight: 500 }}>RSM CRM</div>
+        <div className="faint ell" style={{ fontSize: 12 }}>
+          People, companies and history, under your own CRM permissions
+        </div>
+      </div>
+      <Chip tone={connected ? 'ok' : 'neutral'} dot className="hide-sm">
+        {connected ? 'Connected' : 'Not connected'}
+      </Chip>
+      {connected ? (
+        <button type="button" className="btn btn-sm btn-g" disabled={disconnect.isPending} onClick={() => disconnect.mutate()}>
+          Disconnect
+        </button>
+      ) : (
+        <a className="btn btn-sm btn-p" href="/api/integrations/twenty/connect?returnTo=%2Fpeople">
+          Connect
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function ConnectedAppsTab() {
   const viewer = useViewer();
   const { notify, stateOf } = useConnectorActions();
+  const crmPerUser = viewer.config.crmAccess === 'per_user';
   return (
     <>
+      {crmPerUser ? <CrmConnectionRow /> : null}
       <div className="note" style={{ margin: '14px 0 6px' }}>
         <Icon name="alert" size="s" style={{ marginTop: 1 }} />
         <span>
-          All connectors are coming soon. Choose Notify me and RedSky will tell you when each one is ready.
+          {crmPerUser ? 'The other connectors are coming soon.' : 'All connectors are coming soon.'} Choose Notify me and RedSky will tell you when each one is ready.
           {viewer.config.dataMode === 'demo' ? ' Records shown in this demo are sample data.' : ' Until then, widgets that need them show what connecting would enable.'}
         </span>
       </div>

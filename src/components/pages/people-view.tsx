@@ -1,6 +1,7 @@
 'use client';
 
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { strengthTone } from '@/components/dashboard/strength';
 import { WidgetLoading } from '@/components/dashboard/widget-states';
 import { Avatar, normalizeTone } from '@/components/ui/avatar';
@@ -14,6 +15,8 @@ import { useWorkspaceActions } from '@/lib/client/workspace-actions';
 export function PeopleView() {
   const { openCreate, askAi } = useUiStore.getState();
   const { openRecord } = useWorkspaceActions();
+  // Set by the CRM connection callback when connecting did not complete.
+  const crmOutcome = useSearchParams().get('crm');
   const query = useInfiniteQuery({
     queryKey: queryKeys.people,
     queryFn: ({ pageParam }) => apiFetch<PeopleResponse>(`/api/people${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ''}`),
@@ -63,6 +66,24 @@ export function PeopleView() {
             </span>
             <div style={{ fontWeight: 600, color: 'var(--tx)' }}>People come from the RSM CRM</div>
             <div style={{ fontSize: 12.5, maxWidth: 360 }}>Once your administrator connects RedSky to the CRM, the contacts you’re authorized to see appear here.</div>
+          </div>
+        ) : null}
+        {first?.status === 'connect_required' ? (
+          <div className="empty">
+            <span className="lt lt-0" aria-hidden="true">
+              CR
+            </span>
+            <div style={{ fontWeight: 600, color: 'var(--tx)' }}>Connect to the RSM CRM</div>
+            <div style={{ fontSize: 12.5, maxWidth: 380 }}>RedSky reads the CRM as you, so you see exactly the contacts your CRM role allows. You’ll sign in to the CRM once and approve RedSky.</div>
+            {crmOutcome === 'failed' ? (
+              <div className="field-err" role="alert">
+                RedSky couldn’t finish connecting. Try again, or ask your administrator.
+              </div>
+            ) : null}
+            {crmOutcome === 'denied' ? <div role="status">The connection was cancelled in the CRM.</div> : null}
+            <a className="btn btn-p btn-sm" href="/api/integrations/twenty/connect?returnTo=%2Fpeople">
+              Connect CRM
+            </a>
           </div>
         ) : null}
         {first?.status === 'error' ? (

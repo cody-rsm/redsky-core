@@ -18,6 +18,7 @@ export type PublicConfigView = {
   aiAvailable: boolean;
   aiSimulated: boolean;
   crmConnected: boolean;
+  crmAccess: 'per_user' | 'shared_key' | 'none';
   workstyleStorageAvailable: boolean;
   documentsAvailable: boolean;
   // The firm's time zone; dates and greetings use it so server and browser render the same text.
@@ -53,6 +54,8 @@ export type ViewerPayload = {
   integrations: Partial<Record<ConnectorId, 'notify' | 'requested'>>;
   workstyle: WorkstyleSummary;
   config: PublicConfigView;
+  // This person's CRM connection: with per-user access, each person connects once before RedSky can read the CRM as them.
+  crm: CrmConnectionState;
   demo: { activePersona: DemoPersonaId; personas: DemoPersonaView[]; switchesUser: boolean; todayLabel: string } | null;
 };
 
@@ -200,7 +203,9 @@ export type PipelineBoard = {
 };
 
 export type PeopleRow = { id: string; name: string; initials: string; tone: number; title: string; org: string; owner: string; last: string; strength: string | null };
-export type PeopleResponse = { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null } | { status: 'not_connected' } | { status: 'error'; message: string };
+export type CrmConnectionState = 'connected' | 'connect_required' | 'not_configured';
+
+export type PeopleResponse = { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null } | { status: 'not_connected' } | { status: 'connect_required' } | { status: 'error'; message: string };
 
 // ---- Records, meetings, search, notifications -------------------------------------------------------------
 

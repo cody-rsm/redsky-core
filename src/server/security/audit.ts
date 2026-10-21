@@ -28,6 +28,10 @@ export type AuditAction =
   | 'document.downloaded'
   | 'document.reprocessed'
   | 'document.deleted'
+  | 'crm.connected'
+  | 'crm.disconnected'
+  | 'crm.connection_expired'
+  | 'crm.connect_failed'
   | 'access.denied';
 
 export type AuditEvent = {

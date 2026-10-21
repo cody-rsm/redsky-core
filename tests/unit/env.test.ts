@@ -54,6 +54,39 @@ describe('parseConfig', () => {
     expect(configured.crm.provider).toBe('twenty');
   });
 
+  describe('CRM access', () => {
+    const key = Buffer.alloc(32, 7).toString('base64');
+    const oauth = { TWENTY_PUBLIC_URL: 'https://crm.example.com/', TWENTY_OAUTH_CLIENT_ID: 'client', TWENTY_OAUTH_CLIENT_SECRET: 'secret', REDSKY_ENCRYPTION_KEY: key };
+
+    it('uses each person’s OAuth connection when OAuth is configured, and ignores a shared key', () => {
+      const config = parseConfig(env({ NODE_ENV: 'production', ...oauth, TWENTY_API_URL: 'http://twenty-server.railway.internal:3000', TWENTY_API_KEY: 'shared' }));
+      expect(config.crm.access).toBe('per_user');
+      expect(config.crm.apiKey).toBeNull();
+      expect(config.crm.oauth?.issuer).toBe('https://crm.example.com');
+      expect(config.crm.baseUrl?.href).toBe('http://twenty-server.railway.internal:3000/');
+      expect(config.crm.issues).toContain('TWENTY_API_KEY is ignored: RedSky uses each person’s Twenty connection');
+    });
+
+    it('calls the API on the public address when no private one is set', () => {
+      expect(parseConfig(env({ NODE_ENV: 'production', ...oauth })).crm.baseUrl?.href).toBe('https://crm.example.com/');
+    });
+
+    it('keeps the shared key only without OAuth', () => {
+      const config = parseConfig(env({ NODE_ENV: 'production', TWENTY_API_URL: 'https://crm.example.com', TWENTY_API_KEY: 'shared' }));
+      expect(config.crm.access).toBe('shared_key');
+      expect(config.crm.apiKey).toBe('shared');
+    });
+
+    it('refuses OAuth that is incomplete, insecure or has nowhere to store tokens', () => {
+      const partial = parseConfig(env({ NODE_ENV: 'production', TWENTY_PUBLIC_URL: 'https://crm.example.com', TWENTY_OAUTH_CLIENT_ID: 'client', REDSKY_ENCRYPTION_KEY: key }));
+      expect(partial.crm.access).toBe('none');
+      expect(partial.crm.issues).toContain('Twenty OAuth needs TWENTY_OAUTH_CLIENT_SECRET');
+      expect(parseConfig(env({ NODE_ENV: 'production', ...oauth, TWENTY_PUBLIC_URL: 'http://crm.example.com' })).crm.access).toBe('none');
+      const { REDSKY_ENCRYPTION_KEY: _unused, ...withoutKey } = oauth;
+      expect(parseConfig(env({ NODE_ENV: 'production', ...withoutKey })).crm.issues).toContain('Twenty OAuth needs REDSKY_ENCRYPTION_KEY to store tokens');
+    });
+  });
+
   it('falls back to the firm time zone when the configured one is invalid', () => {
     expect(parseConfig(env({ NODE_ENV: 'development', REDSKY_TIMEZONE: 'Mars/Olympus' })).timeZone).toBe('America/New_York');
   });
