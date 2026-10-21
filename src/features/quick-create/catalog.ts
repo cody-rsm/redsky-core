@@ -1,6 +1,6 @@
 import type { IconName } from '@/components/ui/icon';
 
-export const CREATE_TYPES = ['task', 'contact', 'meeting', 'opportunity', 'document', 'research'] as const;
+export const CREATE_TYPES = ['task', 'contact', 'meeting', 'opportunity', 'document', 'research', 'note'] as const;
 export type CreateType = (typeof CREATE_TYPES)[number];
 
 export type CreateDefinition = {
@@ -25,6 +25,7 @@ export const CREATE_DEFINITIONS: Record<CreateType, CreateDefinition> = {
   meeting: { title: 'Log meeting', icon: 'calendar', fieldLabel: 'Meeting', placeholder: 'e.g. Coffee with Elena Sorensen', relLabel: 'Related to', choice: { label: 'When', options: ['Today', 'Yesterday', 'Earlier this week'] }, note: 'If a public official attended, this log supports disclosure review.', saveLabel: 'Log meeting', native: false },
   opportunity: { title: 'Add opportunity', icon: 'pipeline', fieldLabel: 'Company', placeholder: 'Company name', relLabel: 'Source / introduced via', choice: { label: 'Stage', options: PIPELINE_STAGES.slice(0, 3) }, note: 'New opportunities start in Sourcing unless a stage is chosen. Sample only.', saveLabel: 'Add opportunity', native: false },
   document: { title: 'Upload document', icon: 'upload', fieldLabel: 'Document name', placeholder: 'e.g. Site visit notes', relLabel: 'Link to', choice: { label: 'Visibility', options: ['Only me', 'Deal or project team', 'All RSM staff'] }, note: 'Uploads in this prototype are simulated — files stay on your device.', saveLabel: 'Upload', native: false },
+  note: { title: 'Add note', icon: 'edit', fieldLabel: 'Note', placeholder: '', relLabel: 'Related to', note: 'Saved to the RSM CRM as you.', saveLabel: 'Add note', native: false },
   research: { title: 'Start research', icon: 'flask', fieldLabel: 'Company, person or topic', placeholder: 'e.g. Halcyon Robotics', relLabel: 'Related to', choice: { label: 'Depth', options: ['Quick scan', 'Standard brief', 'Deep dive'] }, note: 'RedSky AI compiles internal records first, then approved external sources.', saveLabel: 'Start research', native: true },
 };
 

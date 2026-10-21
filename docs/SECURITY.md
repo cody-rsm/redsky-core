@@ -74,6 +74,7 @@ Permissions are enforced where the record lives ([`DECISIONS.md`](DECISIONS.md) 
 - **The flow.** Authorization code with PKCE (S256), a client secret sent in the request body, a `state` check, and Twenty's issuer checked on return. The connection attempt is bound to the RedSky user who started it, in an encrypted, short-lived cookie scoped to `/api/integrations/twenty`, so a code can't be attached to someone else's account.
 - **Tokens.** Access and refresh tokens are encrypted with `REDSKY_ENCRYPTION_KEY` (AES-256-GCM), bound to the person and provider, in `crm_connections`. They are never sent to the browser or logged. Twenty's refresh tokens are not single-use, so disconnecting revokes the grant in Twenty before deleting them. A grant Twenty no longer honours is deleted, and the person must connect again.
 - **No fallback.** With OAuth configured, the shared `TWENTY_API_KEY` is ignored.
+- **Writes.** Only with the person's own token, never a shared key; Twenty decides whether their role allows it. Contacts are reviewed before saving; each save runs once per request key (`crm_writes`); a note is only linked to a record the person can read. Audited as `crm.contact_added` and `crm.note_added`.
 - **Audit.** `crm.connected`, `crm.disconnected`, `crm.connection_expired` and `crm.connect_failed`, with ids only.
 - **Stopgap shared key.** Without OAuth, one read-only API key decides what every RedSky user sees. Use it only with pre-production data.
 

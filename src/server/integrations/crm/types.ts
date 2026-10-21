@@ -47,6 +47,9 @@ export type CrmListOptions = { limit?: number; cursor?: string | null; search?: 
 
 export type CrmHealth = 'ok' | 'unauthorized' | 'unreachable';
 
+export type NewCrmContact = { firstName: string; lastName: string; email?: string; jobTitle?: string; companyId: string | null };
+export type CrmNoteTarget = { kind: 'contact' | 'company'; id: string };
+
 export interface CrmAdapter {
   readonly provider: string;
   health(): Promise<CrmHealth>;
@@ -55,11 +58,19 @@ export interface CrmAdapter {
   listCompanies(options?: CrmListOptions): Promise<CrmPage<CrmCompany>>;
   getCompany(id: string): Promise<CrmCompany | null>;
   listOpportunities(options?: CrmListOptions): Promise<CrmPage<CrmOpportunity>>;
+  // Writes. Callers make them only with a person's own credential, never a shared key (DECISIONS.md 16).
+  findDuplicateContacts(input: { firstName: string; lastName: string; email?: string }): Promise<CrmContact[]>;
+  findCompaniesByName(name: string, limit: number): Promise<CrmCompany[]>;
+  createCompany(input: { name: string }): Promise<CrmCompany>;
+  createContact(input: NewCrmContact): Promise<CrmContact>;
+  addNote(input: { title?: string; body: string; target: CrmNoteTarget }): Promise<{ id: string }>;
 }
 
 export class CrmError extends Error {
   constructor(
-    public readonly kind: 'unauthorized' | 'unreachable' | 'rate_limited' | 'bad_response',
+    // unauthorized: the credential was refused (401); forbidden: the person's role doesn't allow it (403); invalid: the
+    // CRM rejected the input (400), with its message.
+    public readonly kind: 'unauthorized' | 'forbidden' | 'invalid' | 'unreachable' | 'rate_limited' | 'bad_response',
     message: string,
   ) {
     super(message);

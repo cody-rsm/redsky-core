@@ -22,6 +22,13 @@
       "when": 1792543380545,
       "tag": "0002_crm_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792596109031,
+      "tag": "0003_crm_writes",
+      "breakpoints": true
     }
   ]
 }

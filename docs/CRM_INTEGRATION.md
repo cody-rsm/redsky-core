@@ -22,7 +22,8 @@ Why Twenty:
 |---|---|---|
 | Connect RedSky to the CRM (once) | RedSky People or Settings › Connected apps, approving on Twenty's consent page | Built; staging trial next (step 1) |
 | Find a person or company | RedSky: ⌘K search, People, record preview | Built, read-only, as each person |
-| Add a contact or company, log a meeting, add a note | RedSky (quick create, record pages), saved to Twenty as the person | Step 2 |
+| Add a contact (with its organization) or a note | RedSky: + New › Add contact, which reviews possible duplicates first; Add note on a contact or organization preview. Saved to Twenty as the person | Built (step 2) |
+| Log a meeting or interaction | RedSky, on `rsm-core`'s `interaction` object | Waits for `rsm-core` on the staging workspace |
 | Edit a record's details | RedSky record page | Step 3. Today's preview is a read-only drawer |
 | Email and meeting history with someone | RedSky record timeline, filled by Twenty's email/calendar sync | Step 3 |
 | Connect their Outlook mailbox | Twenty, once, at setup: Twenty only starts it from the person's own Twenty session, and has no organization-wide sync | Step 4 |
@@ -36,7 +37,7 @@ Why Twenty:
 | Step | Delivers | Done when |
 |---|---|---|
 | 1. Per-person connection | Each person connects once; People, search and previews read Twenty as them | RedSky is registered in Twenty and the trial on staging passes ([`DEPLOYMENT.md`](DEPLOYMENT.md) §10): permissions differ by role, disconnect revokes. `rsm-core` installed on the staging workspace |
-| 2. Write path | Create and edit people and companies, add notes, log interactions, as the person | Writes go through the confirmation dialog, duplicate checks and RedSky's audit log, against a staging Twenty first |
+| 2. Write path | Add contacts and organizations, and notes, as the person (built); log interactions once `rsm-core` is installed | Tried against the staging Twenty: a contact added in RedSky appears in Twenty with the person as author |
 | 3. Record pages, timeline and change notifications | Full, editable record pages with the email/meeting timeline; a webhook receiver for refreshes and notifications | An employee can do day-to-day CRM work without opening Twenty |
 | 4. Mailbox connection | A guided setup: approve RedSky and connect Outlook in one sitting | No employee needs Twenty after setup |
 | 5. Deals | `rsm-core`'s `deal` object (Phase 2) with RSM's deal walls; Pipeline and deal records in RedSky | Matches the RSM Deal System (`YY-##` numbers, status vocabulary) |
@@ -51,8 +52,10 @@ Why Twenty:
 - **Attribution.** Twenty records the person as the author of each change; RedSky's audit log records it too.
 
 ### Writes (step 2)
-- **Same path as other changes.** Every create or update is a structured action that goes through RedSky's confirmation step and `/api/actions/confirm`. The server re-derives the action, makes it idempotent and records it in `audit_events`; Twenty authorizes it. The same applies to AI-proposed actions.
-- **Duplicate checks.** Before creating a record, match people by email and companies by website domain. Show the possible match instead of creating a second record.
+- **Review, then save.** Add contact shows what will be written before anything is saved: possible duplicates, found by Twenty's own rules (`POST /rest/people/duplicates`: same email, LinkedIn URL, or exact first and last name), and whether the organization exists or will be added. Notes are saved by their explicit Add note button. AI-proposed changes keep going through `/api/actions/confirm`.
+- **Only as the person, only once.** Writes need the person's own connection; a shared key never writes. Each save carries a request key recorded in `crm_writes`, so a double click or a retry writes once and returns the record already created. A failed save releases its key.
+- **Twenty authorizes.** A role that doesn't allow the write is refused by Twenty (a 400 with `PERMISSION_DENIED`); RedSky says so. Every save is recorded in `audit_events` (`crm.contact_added`, `crm.note_added`), with ids only.
+- **Organizations** are matched by exact name, ignoring case; the person chooses an existing one or adds a new one. Adding one never calls an outside enrichment service.
 - **Map to `redsky-twenty`'s fields.** Map to the person and company fields RSM actually uses, including the `rsm-core` custom fields. Treat missing fields as optional, as the read adapter already does.
 - **No copies.** RedSky stores links to Twenty records as `{system, object, id}` (for example `twenty/company/<uuid>`), never their contents.
 

@@ -72,6 +72,7 @@ function PreviewBody({ target, onClose }: { target: PreviewTarget; onClose: () =
   };
   const ACTIONS: Record<RecordAction, Omit<ActionButton, 'key'>> = {
     draft_note: { label: 'Draft note', icon: 'ai', variant: 'btn-ai', run: () => ask('draft_note') },
+    add_note: { label: 'Add note', icon: 'edit', variant: '', run: () => (data.kind === 'contact' || data.kind === 'company') && openCreate('note', { target: { kind: data.kind, id: data.id, label: data.title } }) },
     log_interaction: { label: 'Log interaction', icon: 'calendar', variant: '', run: () => openCreate('meeting', { related: data.org ?? '', extra: 'Today' }) },
     create_task: { label: 'Create task', icon: 'tasks', variant: '', run: () => openCreate('task', { title: data.kind === 'contact' ? `Follow up with ${data.title}` : '', related: data.org ?? data.title, extra: 'This week' }) },
     approve: { label: 'Approve IC date', icon: 'check', variant: 'btn-p', run: () => data.approval && approve(data.approval) },
