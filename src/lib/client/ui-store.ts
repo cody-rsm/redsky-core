@@ -9,7 +9,8 @@ import { apiFetch, errorMessage } from './api';
 
 export type SettingsTab = 'profile' | 'workstyle' | 'appearance' | 'home' | 'ai' | 'notifications' | 'apps';
 export type PreviewTarget = { kind: RecordKind | 'company'; id: string };
-export type CreatePrefill = { title: string; related: string; extra: string; notes: string };
+// `target` is the CRM record a note is added to.
+export type CreatePrefill = { title: string; related: string; extra: string; notes: string; target: { kind: 'contact' | 'company'; id: string; label: string } | null };
 
 export type ConfirmRequest = {
   title: string;
@@ -89,7 +90,7 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 const EMPTY_AI: AiState = { loaded: false, loading: false, conversationId: null, provider: 'simulated', messages: [], pendingQuestion: null, error: null };
 
-const DEFAULT_PREFILL: CreatePrefill = { title: '', related: '', extra: '', notes: '' };
+const DEFAULT_PREFILL: CreatePrefill = { title: '', related: '', extra: '', notes: '', target: null };
 
 export const useUiStore = create<UiState>()((set, get) => ({
   paletteOpen: false,

@@ -2,6 +2,7 @@ import 'server-only';
 import { initialsFromName } from '@/components/ui/avatar';
 import { connectorById, type ConnectorId } from '@/features/integrations/catalog';
 import type { NotConnectedSource, RecordPreview, SearchResult, WidgetResponse } from '@/lib/api/contracts';
+import { getConfig } from '@/server/config/env';
 import { crmAccessFor } from '@/server/integrations/crm';
 import { CrmError } from '@/server/integrations/crm/types';
 import { logger } from '@/server/logging/logger';
@@ -91,7 +92,7 @@ export const productionProvider: WorkspaceDataProvider = {
             ...(contact.lastInteractionAt ? [{ label: 'Last interaction', value: contact.lastInteractionAt.slice(0, 10) }] : []),
           ],
           access: 'Visible under your CRM role',
-          actions: ['create_task'],
+          actions: getConfig().crm.access === 'per_user' ? ['add_note', 'create_task'] : ['create_task'],
           org: contact.companyName,
         };
       }
@@ -109,7 +110,7 @@ export const productionProvider: WorkspaceDataProvider = {
         ],
         activity: company.description ? [{ date: 'Profile', text: company.description }] : [],
         access: 'Visible under your CRM role',
-        actions: ['create_task'],
+        actions: getConfig().crm.access === 'per_user' ? ['add_note', 'create_task'] : ['create_task'],
         org: company.name,
       };
     } catch (error) {

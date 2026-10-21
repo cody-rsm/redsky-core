@@ -137,6 +137,21 @@ export const crmConnections = redsky.table(
   (table) => [primaryKey({ columns: [table.userId, table.provider] })],
 );
 
+// CRM writes made through RedSky, one row per request, so a retried or double-clicked save writes once and returns
+// the record it created. The records themselves live only in the CRM.
+export const crmWrites = redsky.table(
+  'crm_writes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    requestKey: uuid('request_key').notNull(),
+    kind: text('kind', { enum: ['contact', 'note'] }).notNull(),
+    recordId: text('record_id'),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex('crm_writes_request_idx').on(table.userId, table.requestKey)],
+);
+
 export type WorkstyleSharing = { manager: boolean; colleagues: boolean };
 export type WorkstyleExtractionMeta = {
   status: 'extracted' | 'partial' | 'unrecognized' | 'unreadable' | 'manual' | 'sample';

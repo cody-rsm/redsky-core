@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { AddContactForm } from '@/components/crm/add-contact-form';
+import { AddNoteForm } from '@/components/crm/add-note-form';
 import { DocumentUploadForm } from '@/components/documents/upload-form';
 import { Modal, DialogTitle } from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icon';
@@ -41,10 +43,17 @@ export function QuickCreateModal() {
   const definition = create ? CREATE_DEFINITIONS[create.type] : null;
   // Real uploads whenever document storage is configured, in either data mode: documents are RedSky's own data.
   const realUpload = create?.type === 'document' && viewer.config.documentsAvailable;
+  // CRM writes go to the CRM as the person, so only once they have connected their own CRM access.
+  const crmWrites = viewer.config.dataMode !== 'demo' && viewer.config.crmAccess === 'per_user' && viewer.crm === 'connected';
+  const contactForm = create?.type === 'contact' && crmWrites;
+  const noteTarget = create?.type === 'note' && crmWrites ? create.prefill.target : null;
+  const generic = create && !realUpload && !contactForm && create.type !== 'note';
   return (
     <Modal open={Boolean(create)} onOpenChange={(open) => !open && close()} label={definition?.title ?? 'Create'} hiddenLabel={false} zIndex={67} wrapStyle={{ paddingTop: '14vh' }} style={{ width: 'min(540px,100%)' }}>
       {create && realUpload ? <DocumentUploadForm onClose={close} /> : null}
-      {create && !realUpload ? <CreateForm key={create.type} type={create.type} prefill={create.prefill} onClose={close} /> : null}
+      {create && contactForm ? <AddContactForm prefill={create.prefill} onClose={close} /> : null}
+      {noteTarget ? <AddNoteForm target={noteTarget} onClose={close} /> : null}
+      {create && generic ? <CreateForm key={create.type} type={create.type} prefill={create.prefill} onClose={close} /> : null}
     </Modal>
   );
 }
@@ -54,7 +63,8 @@ function CreateForm({ type, prefill, onClose }: { type: CreateType; prefill: Cre
   const definition = CREATE_DEFINITIONS[type];
   const { choice } = definition;
   const demo = viewer.config.dataMode === 'demo';
-  const unavailable = !definition.native && !demo ? UNAVAILABLE_NOTE[type] : undefined;
+  const connectFirst = type === 'contact' && viewer.config.crmAccess === 'per_user' && viewer.crm === 'connect_required';
+  const unavailable = !definition.native && !demo ? (connectFirst ? 'Connect to the RSM CRM first, from People › Connect CRM.' : UNAVAILABLE_NOTE[type]) : undefined;
   const { toast, askAi } = useUiStore.getState();
   const { refreshWidgets } = useWorkspaceActions();
   const [serverError, setServerError] = useState<string | null>(null);

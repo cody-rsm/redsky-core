@@ -205,11 +205,19 @@ export type PipelineBoard = {
 export type PeopleRow = { id: string; name: string; initials: string; tone: number; title: string; org: string; owner: string; last: string; strength: string | null };
 export type CrmConnectionState = 'connected' | 'connect_required' | 'not_configured';
 
+// Shown before a contact is added: possible duplicates (Twenty's own duplicate rules) and organizations with the
+// name entered, so the person chooses instead of RedSky guessing.
+export type CrmContactReview = {
+  duplicates: Array<{ id: string; name: string; email: string | null; organization: string | null }>;
+  organizations: Array<{ id: string; name: string; domain: string | null }>;
+};
+export type CrmWriteResult = { id: string; message: string };
+
 export type PeopleResponse = { status: 'ok'; sample: boolean; rows: PeopleRow[]; nextCursor: string | null } | { status: 'not_connected' } | { status: 'connect_required' } | { status: 'error'; message: string };
 
 // ---- Records, meetings, search, notifications -------------------------------------------------------------
 
-export type RecordAction = 'draft_note' | 'log_interaction' | 'create_task' | 'approve' | 'ask' | 'open_pipeline' | 'summarize' | 'open_external' | 'message' | 'summarize_week' | 'research';
+export type RecordAction = 'draft_note' | 'add_note' | 'log_interaction' | 'create_task' | 'approve' | 'ask' | 'open_pipeline' | 'summarize' | 'open_external' | 'message' | 'summarize_week' | 'research';
 
 export type RecordPreview = {
   kind: RecordKind | 'company';

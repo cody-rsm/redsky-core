@@ -32,6 +32,8 @@ export type AuditAction =
   | 'crm.disconnected'
   | 'crm.connection_expired'
   | 'crm.connect_failed'
+  | 'crm.contact_added'
+  | 'crm.note_added'
   | 'access.denied';
 
 export type AuditEvent = {
