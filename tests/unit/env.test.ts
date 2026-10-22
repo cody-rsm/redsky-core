@@ -45,6 +45,23 @@ describe('parseConfig', () => {
     expect(parseConfig(env({ NODE_ENV: 'production', REDSKY_ENCRYPTION_KEY: key })).encryptionKey).toHaveLength(32);
   });
 
+  it('accepts a fallback encryption key only during a rotation', () => {
+    const key = Buffer.alloc(32, 7).toString('base64');
+    const previous = Buffer.alloc(32, 8).toString('base64');
+    const rotating = parseConfig(env({ NODE_ENV: 'production', REDSKY_ENCRYPTION_KEY: key, REDSKY_FALLBACK_ENCRYPTION_KEY: previous }));
+    expect(rotating.encryptionKey?.toString('base64')).toBe(key);
+    expect(rotating.fallbackEncryptionKey?.toString('base64')).toBe(previous);
+    expect(parseConfig(env({ NODE_ENV: 'production', REDSKY_ENCRYPTION_KEY: key })).fallbackEncryptionKey).toBeNull();
+
+    const malformed = parseConfig(env({ NODE_ENV: 'production', REDSKY_ENCRYPTION_KEY: key, REDSKY_FALLBACK_ENCRYPTION_KEY: 'short' }));
+    expect(malformed.fallbackEncryptionKey).toBeNull();
+    expect(malformed.auth.issues).toContain('REDSKY_FALLBACK_ENCRYPTION_KEY must be 32 bytes, base64-encoded');
+
+    const finished = parseConfig(env({ NODE_ENV: 'production', REDSKY_ENCRYPTION_KEY: key, REDSKY_FALLBACK_ENCRYPTION_KEY: key }));
+    expect(finished.fallbackEncryptionKey).toBeNull();
+    expect(finished.auth.issues.some((issue) => issue.startsWith('REDSKY_FALLBACK_ENCRYPTION_KEY is the same'))).toBe(true);
+  });
+
   it('only enables the AI provider and CRM adapter with credentials', () => {
     const bare = parseConfig(env({ NODE_ENV: 'production', AI_PROVIDER: 'anthropic' }));
     expect(bare.ai.provider).toBe('none');

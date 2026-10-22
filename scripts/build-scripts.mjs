@@ -2,7 +2,7 @@
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: { migrate: 'scripts/migrate.ts' },
+  entryPoints: { migrate: 'scripts/migrate.ts', 'rotate-encryption-key': 'scripts/rotate-encryption-key.ts' },
   outdir: 'dist',
   outExtension: { '.js': '.mjs' },
   bundle: true,
@@ -11,5 +11,7 @@ await build({
   format: 'esm',
   sourcemap: false,
   logLevel: 'info',
+  // Next's server-only guard throws outside the React server runtime; the scripts share server modules with the app.
+  alias: { 'server-only': './tests/stubs/server-only.ts' },
   banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
 });

@@ -14,7 +14,8 @@ import { badRequest, notFound, unavailable } from '@/server/http/errors';
 import { logger } from '@/server/logging/logger';
 import { assertAuthorized, authorize, type Actor } from '@/server/security/access-policy';
 import { recordAudit } from '@/server/security/audit';
-import { decryptString, encryptBytes, encryptString } from '@/server/security/crypto';
+import { decryptStringWithKeys, encryptBytes, encryptString } from '@/server/security/crypto';
+import { workstyleContext as context } from '@/server/security/encryption-contexts';
 import { extractPdfText, looksLikePdf } from '@/server/workstyle/pdf-text';
 import { loadPreferencesState, savePreferencesState } from './preferences-service';
 
@@ -27,7 +28,9 @@ function key(): Buffer {
   return encryptionKey;
 }
 
-const context = (userId: string, field: string) => `workstyle:${userId}:${field}`;
+function decryptionKeys(): (Buffer | null)[] {
+  return [key(), getConfig().fallbackEncryptionKey];
+}
 
 async function guard(actor: Actor, userId: string, action: 'read' | 'write' | 'delete' | 'share', requestId: string): Promise<void> {
   const decision = authorize(actor, action, { type: 'workstyle', ownerId: userId });
@@ -62,15 +65,15 @@ function emptyDetail(): WorkstyleDetail {
 }
 
 function toDetail(userId: string, row: Row): WorkstyleDetail {
-  const encryptionKey = key();
-  const stored = row.draftCiphertext ? (JSON.parse(decryptString(row.draftCiphertext, encryptionKey, context(userId, 'draft'))) as StoredDraft) : null;
-  const profile = row.profileCiphertext ? workstyleProfileSchema.parse(JSON.parse(decryptString(row.profileCiphertext, encryptionKey, context(userId, 'profile')))) : null;
+  const keys = decryptionKeys();
+  const stored = row.draftCiphertext ? (JSON.parse(decryptStringWithKeys(row.draftCiphertext, keys, context(userId, 'draft'))) as StoredDraft) : null;
+  const profile = row.profileCiphertext ? workstyleProfileSchema.parse(JSON.parse(decryptStringWithKeys(row.profileCiphertext, keys, context(userId, 'profile')))) : null;
   const suggestions = profile ? suggestFromProfile(profile) : null;
   return {
     present: true,
     consentGiven: true,
     sourceKind: row.sourceKind,
-    fileName: row.sourceNameCiphertext ? decryptString(row.sourceNameCiphertext, encryptionKey, context(userId, 'name')) : null,
+    fileName: row.sourceNameCiphertext ? decryptStringWithKeys(row.sourceNameCiphertext, keys, context(userId, 'name')) : null,
     addedAt: row.createdAt.toISOString(),
     extraction: {
       status: row.extraction.status,

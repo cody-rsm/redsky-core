@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { decryptString, deriveKey, encryptBytes, encryptString, hmac, randomToken, safeEqual, sha256 } from '@/server/security/crypto';
+import { decodeEncryptionKey, decryptBytes, decryptBytesWithKeys, decryptString, decryptStringWithKeys, deriveKey, encryptBytes, encryptString, hmac, randomToken, safeEqual, sha256 } from '@/server/security/crypto';
 
 const key = randomBytes(32);
 
@@ -31,6 +31,41 @@ describe('encryptString / decryptString', () => {
   it('encrypts bytes without leaving plaintext in the output', () => {
     const plaintext = Buffer.from('%PDF-1.7 confidential report');
     expect(encryptBytes(plaintext, key, 'doc').includes(plaintext)).toBe(false);
+  });
+
+  it('round-trips bytes and binds them to their context', () => {
+    const plaintext = Buffer.from('%PDF-1.7 confidential report');
+    const envelope = encryptBytes(plaintext, key, 'workstyle:u1:document');
+    expect(decryptBytes(envelope, key, 'workstyle:u1:document').equals(plaintext)).toBe(true);
+    expect(() => decryptBytes(envelope, key, 'workstyle:u2:document')).toThrow();
+    expect(() => decryptBytes(envelope, randomBytes(32), 'workstyle:u1:document')).toThrow();
+    expect(() => decryptBytes(envelope.subarray(0, 20), key, 'workstyle:u1:document')).toThrow('Unsupported ciphertext');
+  });
+});
+
+describe('decryption with an ordered key list (key rotation)', () => {
+  const previousKey = randomBytes(32);
+
+  it('reads values written under the primary key and under the fallback key', () => {
+    const current = encryptString('under new key', key, 'ctx');
+    const previous = encryptString('under old key', previousKey, 'ctx');
+    expect(decryptStringWithKeys(current, [key, previousKey], 'ctx')).toBe('under new key');
+    expect(decryptStringWithKeys(previous, [key, previousKey], 'ctx')).toBe('under old key');
+    const bytes = encryptBytes(Buffer.from('pdf'), previousKey, 'doc');
+    expect(decryptBytesWithKeys(bytes, [key, null, previousKey], 'doc').toString()).toBe('pdf');
+  });
+
+  it('ignores missing keys and refuses a value no listed key can read', () => {
+    const envelope = encryptString('secret', randomBytes(32), 'ctx');
+    expect(() => decryptStringWithKeys(envelope, [key, previousKey], 'ctx')).toThrow();
+    expect(() => decryptStringWithKeys(envelope, [null], 'ctx')).toThrow('No decryption key');
+    expect(() => decryptStringWithKeys(envelope, [], 'ctx')).toThrow('No decryption key');
+  });
+
+  it('decodes keys only in the configured 32-byte base64 form', () => {
+    expect(decodeEncryptionKey(key.toString('base64'))?.equals(key)).toBe(true);
+    expect(decodeEncryptionKey(Buffer.alloc(16).toString('base64'))).toBeNull();
+    expect(decodeEncryptionKey('not a key')).toBeNull();
   });
 });
 

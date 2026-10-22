@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { logger } from '@/server/logging/logger';
+import { decodeEncryptionKey, ENCRYPTION_KEY_BYTES } from '@/server/security/crypto';
 
 // Server-only configuration. Nothing here is ever sent to the browser; client code receives only the derived,
 // non-secret flags exposed through getPublicConfig().
@@ -25,6 +26,7 @@ const rawSchema = z.object({
   REDSKY_DATA_MODE: z.enum(['demo', 'production']).optional(),
   REDSKY_SESSION_SECRET: optionalString,
   REDSKY_ENCRYPTION_KEY: optionalString,
+  REDSKY_FALLBACK_ENCRYPTION_KEY: optionalString,
   REDSKY_SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(12),
   AUTH_ENTRA_TENANT_ID: optionalString,
   AUTH_ENTRA_CLIENT_ID: optionalString,
@@ -76,6 +78,8 @@ export type AppConfig = {
     issues: string[];
   };
   encryptionKey: Buffer | null;
+  // The previous key during a rotation (docs/DEPLOYMENT.md §12): reads try it after the primary; writes never use it.
+  fallbackEncryptionKey: Buffer | null;
   ai: { provider: 'anthropic' | 'none'; apiKey: string | null; model: string; effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
   crm: CrmConfig;
   workstyle: { retainOriginal: boolean };
@@ -159,6 +163,7 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
   }
 
   const encryptionKey = parseEncryptionKey(env.REDSKY_ENCRYPTION_KEY, isProduction, issues);
+  const fallbackEncryptionKey = parseFallbackEncryptionKey(env.REDSKY_FALLBACK_ENCRYPTION_KEY, encryptionKey, issues);
   const crm = parseCrm(env, isProduction, encryptionKey !== null);
   const documents = parseDocuments(env, isProduction);
 
@@ -172,6 +177,7 @@ export function parseConfig(source: NodeJS.ProcessEnv): AppConfig {
     timeZone: isValidTimeZone(env.REDSKY_TIMEZONE) ? env.REDSKY_TIMEZONE : 'America/New_York',
     auth: { mode, sessionSecret, sessionTtlHours: env.REDSKY_SESSION_TTL_HOURS, entra, issues },
     encryptionKey,
+    fallbackEncryptionKey,
     ai: {
       provider: env.AI_PROVIDER === 'anthropic' && env.ANTHROPIC_API_KEY ? 'anthropic' : 'none',
       apiKey: env.ANTHROPIC_API_KEY ?? null,
@@ -263,13 +269,26 @@ function isLoopback(url: URL): boolean {
 // derives a fixed, clearly non-production key so local setup needs no secrets.
 function parseEncryptionKey(value: string | undefined, isProduction: boolean, issues: string[]): Buffer | null {
   if (value) {
-    const key = Buffer.from(value, 'base64');
-    if (key.length === 32) return key;
-    issues.push('REDSKY_ENCRYPTION_KEY must be 32 bytes, base64-encoded');
-    return null;
+    const key = decodeEncryptionKey(value);
+    if (!key) issues.push(`REDSKY_ENCRYPTION_KEY must be ${ENCRYPTION_KEY_BYTES} bytes, base64-encoded`);
+    return key;
   }
   if (isProduction) return null;
-  return Buffer.alloc(32, 'redsky-development-only-key');
+  return Buffer.alloc(ENCRYPTION_KEY_BYTES, 'redsky-development-only-key');
+}
+
+function parseFallbackEncryptionKey(value: string | undefined, primary: Buffer | null, issues: string[]): Buffer | null {
+  if (!value) return null;
+  const key = decodeEncryptionKey(value);
+  if (!key) {
+    issues.push(`REDSKY_FALLBACK_ENCRYPTION_KEY must be ${ENCRYPTION_KEY_BYTES} bytes, base64-encoded`);
+    return null;
+  }
+  if (primary?.equals(key)) {
+    issues.push('REDSKY_FALLBACK_ENCRYPTION_KEY is the same as REDSKY_ENCRYPTION_KEY; the rotation is complete, remove it');
+    return null;
+  }
+  return key;
 }
 
 export type PublicConfig = {

@@ -7,7 +7,8 @@ import { getDb } from '@/server/db/client';
 import { crmConnections } from '@/server/db/schema';
 import { logger } from '@/server/logging/logger';
 import { recordAudit } from '@/server/security/audit';
-import { decryptString, deriveKey, encryptString } from '@/server/security/crypto';
+import { decryptString, decryptStringWithKeys, deriveKey, encryptString } from '@/server/security/crypto';
+import { crmTokenContext } from '@/server/security/encryption-contexts';
 import { CrmError } from './types';
 
 // RedSky acts in Twenty as the signed-in person through Twenty's OAuth authorization server (authorization code,
@@ -74,7 +75,11 @@ function tokenKey(): Buffer {
   return key;
 }
 
-const tokenContext = (userId: string, kind: 'refresh' | 'access') => `crm:${PROVIDER}:${userId}:${kind}`;
+function tokenDecryptionKeys(): (Buffer | null)[] {
+  return [tokenKey(), getConfig().fallbackEncryptionKey];
+}
+
+const tokenContext = (userId: string, kind: 'refresh' | 'access') => crmTokenContext(PROVIDER, userId, kind);
 
 export async function beginTwentyConnect(userId: string, returnTo: string): Promise<{ url: URL; transactionCookie: string }> {
   const config = configuration();
@@ -157,13 +162,13 @@ const inflightRefreshes = new Map<string, Promise<string | null>>();
 export async function twentyAccessToken(userId: string): Promise<string | null> {
   const row = await loadConnection(userId);
   if (!row) return null;
-  const key = tokenKey();
-  if (row.accessTokenExpiresAt.getTime() - Date.now() > REFRESH_MARGIN_MS) return decryptString(row.accessTokenCiphertext, key, tokenContext(userId, 'access'));
+  const keys = tokenDecryptionKeys();
+  if (row.accessTokenExpiresAt.getTime() - Date.now() > REFRESH_MARGIN_MS) return decryptStringWithKeys(row.accessTokenCiphertext, keys, tokenContext(userId, 'access'));
 
   // Several requests from one page can arrive at once; they share one refresh.
   const pending = inflightRefreshes.get(userId);
   if (pending) return pending;
-  const refresh = refreshConnection(userId, decryptString(row.refreshTokenCiphertext, key, tokenContext(userId, 'refresh'))).finally(() => inflightRefreshes.delete(userId));
+  const refresh = refreshConnection(userId, decryptStringWithKeys(row.refreshTokenCiphertext, keys, tokenContext(userId, 'refresh'))).finally(() => inflightRefreshes.delete(userId));
   inflightRefreshes.set(userId, refresh);
   return refresh;
 }
@@ -189,7 +194,7 @@ export async function disconnectTwenty(userId: string, requestId: string): Promi
   const row = await loadConnection(userId);
   if (!row) return;
   try {
-    await oidc.tokenRevocation(configuration(), decryptString(row.refreshTokenCiphertext, tokenKey(), tokenContext(userId, 'refresh')), { token_type_hint: 'refresh_token' });
+    await oidc.tokenRevocation(configuration(), decryptStringWithKeys(row.refreshTokenCiphertext, tokenDecryptionKeys(), tokenContext(userId, 'refresh')), { token_type_hint: 'refresh_token' });
   } catch (error) {
     logger.warn('Twenty token revocation failed', { error: error instanceof Error ? error.name : 'unknown' });
   }

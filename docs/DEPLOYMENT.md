@@ -77,7 +77,7 @@ Open `redsky-web` → **Variables → Raw Editor** and paste the following, then
 
 ```bash
 openssl rand -base64 48    # REDSKY_SESSION_SECRET
-openssl rand -base64 32    # REDSKY_ENCRYPTION_KEY  (losing it makes stored Workstyle data unreadable)
+openssl rand -base64 32    # REDSKY_ENCRYPTION_KEY  (losing it makes stored Workstyle data unreadable; to rotate it, see §12)
 ```
 
 ```env
@@ -302,7 +302,33 @@ TWENTY_OAUTH_CLIENT_SECRET=<clientSecret>
   - Optionally a second Railway environment that tracks `staging`, with its own `redsky-postgres`.
   - In `redsky-web` → **Settings → Source**, enable **Wait for CI**, so Railway deploys only commits whose GitHub checks passed.
   - Optionally add **Watch Paths** (`/src/**`, `/public/**`, `/drizzle/**`, `/scripts/**`, `/package.json`, `/package-lock.json`, `/Dockerfile`, `/next.config.ts`, `/tsconfig.json`, `/railway.json`), so documentation-only and `services/` commits don't redeploy it.
-  - Keep Railway project membership limited. Rotate `REDSKY_SESSION_SECRET` by replacing it (this signs everyone out). Never rotate `REDSKY_ENCRYPTION_KEY` without a re-encryption plan.
+  - Keep Railway project membership limited. Rotate `REDSKY_SESSION_SECRET` by replacing it (this signs everyone out). Rotate `REDSKY_ENCRYPTION_KEY` with the procedure below, never by replacing it alone.
+
+### Rotating `REDSKY_ENCRYPTION_KEY`
+
+`REDSKY_ENCRYPTION_KEY` protects each person's Workstyle data (`workstyle_assessments`, `workstyle_documents`) and their Twenty tokens (`crm_connections`). Rotate it after any possible exposure of `redsky-web`'s variables (a Railway security disclosure, a laptop with the password manager open, someone with project access leaving). Rotation is online: RedSky keeps serving throughout, because reads try the new key and then the old one until the old one is removed.
+
+1. **Generate the new key** on your own machine and store it in the password manager: `openssl rand -base64 32`.
+2. **Set both keys** on `redsky-web` → **Variables**, then deploy:
+
+   ```env
+   REDSKY_ENCRYPTION_KEY=<new key>
+   REDSKY_FALLBACK_ENCRYPTION_KEY=<old key>
+   ```
+
+   Seal both. From this deployment on, everything written uses the new key; rows written earlier are still read with the old one.
+3. **Re-encrypt the existing rows.** The command ships in the image next to the migration runner. Run it inside `redsky-web` with the Railway CLI (`railway link` to the project first):
+
+   ```bash
+   railway ssh --service redsky-web -- node dist/rotate-encryption-key.mjs --dry-run   # counts rows still under the old key; writes nothing
+   railway ssh --service redsky-web -- node dist/rotate-encryption-key.mjs             # rewrites them under the new key
+   ```
+
+   It walks the encrypted columns in batches (`--batch-size=200` to change), skips rows that already read with the new key, refuses a database that is not RedSky's (exit code 2) and is safe to interrupt and run again. Logs carry table names, user ids, counts and timings, never the data. It exits with code 1 if any row reads with neither key, naming the table and user id: that row was written under some other key or is damaged. Delete that person's assessment (Workstyle → delete) or CRM connection (they connect again) and run the command again.
+4. **Confirm** with `--dry-run` until it reports `remaining: 0` and `failed: 0`. A row the application rewrote while the command was running is counted as remaining and picked up by the next run.
+5. **Remove the fallback**: delete `REDSKY_FALLBACK_ENCRYPTION_KEY` from `redsky-web` and deploy. Until then the old key can still read every row that was under it, so this step is what ends its exposure. Keep the old key in the password manager until this deployment is healthy, then retire it.
+
+Never replace `REDSKY_ENCRYPTION_KEY` without the old key as fallback: nothing can read the existing rows then, and the command cannot recover them.
 
 ## 13. Optional: Documents and `redsky-ocr`
 

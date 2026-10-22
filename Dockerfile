@@ -12,7 +12,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Produces .next/standalone (the server) and dist/migrate.mjs (the bundled migration runner).
+# Produces .next/standalone (the server) and dist/*.mjs (the bundled operational scripts: migrate, rotate-encryption-key).
 RUN npm run build
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
